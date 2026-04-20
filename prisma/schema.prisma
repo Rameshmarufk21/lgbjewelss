@@ -1,0 +1,189 @@
+// Jewelry operations catalog — PostgreSQL (Neon / Supabase / RDS). Required in production (e.g. Vercel).
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Maker {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  displayName     String?
+  cadFilenameStem String?
+  status          String   @default("cad_sent")
+  makerId         String?
+  maker           Maker?   @relation(fields: [makerId], references: [id])
+  clientName      String?
+  clientPhone     String?
+  clientEmail     String?
+  clientNotes     String?
+  sellPriceCents  Int?
+  currency        String   @default("USD")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  assets          Asset[]
+  vendorInvoices  VendorInvoice[]
+  stones          StoneAssignment[]
+  findings        FindingPurchase[]
+  extractions     ExtractionJob[]
+  activityLogs    ActivityLog[]
+}
+
+model Asset {
+  id             String            @id @default(cuid())
+  productId      String
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type           String
+  originalName   String
+  storedPath     String
+  publicUrl      String?
+  mimeType       String
+  sizeBytes      Int
+  sha256         String?
+  createdAt      DateTime          @default(now())
+  vendorInvoices VendorInvoice[]   @relation("InvoicePrimaryAsset")
+  extractions    ExtractionJob[]
+  stones         StoneAssignment[]
+  findings       FindingPurchase[]
+}
+
+model VendorInvoice {
+  id                String   @id @default(cuid())
+  productId         String?
+  product           Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  assetId           String?
+  asset             Asset?   @relation("InvoicePrimaryAsset", fields: [assetId], references: [id], onDelete: SetNull)
+  vendor            String
+  invoiceNo         String
+  invoiceDate       DateTime?
+  currency          String   @default("USD")
+  goldWeightG       Float?
+  goldRatePerG      Float?
+  metalCostCents    Int?
+  laborCostCents    Int?
+  otherChargesCents Int?
+  totalCents        Int
+  lineItemsJson     String?
+  paymentStatus     String   @default("unpaid")
+  paidAmountCents   Int?
+  paidAt            DateTime?
+  paymentMethod     String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  statementLines    StatementLine[]
+  lines             VendorInvoiceLine[]
+
+  @@index([invoiceNo])
+}
+
+model VendorInvoiceLine {
+  id                String        @id @default(cuid())
+  vendorInvoiceId   String
+  vendorInvoice     VendorInvoice @relation(fields: [vendorInvoiceId], references: [id], onDelete: Cascade)
+  sortOrder         Int           @default(0)
+  description       String
+  /// e.g. "Gold 14K", "14K RTC", "Platinum" — used for monthly metal / karat rollups
+  metalOrKarat      String?
+  weightGrams       Float?
+  weightDwt         Float?
+  quantity          Int?
+  lineTotalCents    Int?
+  notes             String?
+}
+
+model StoneAssignment {
+  id         String    @id @default(cuid())
+  productId  String
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  memoId     String?
+  supplier   String?
+  carat      Float?
+  shape      String?
+  costCents  Int?
+  returnDate DateTime?
+  notes      String?
+  assetId    String?
+  asset      Asset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  /// diamond | colored_stone | melee | other
+  itemCategory      String?
+  colorGrade        String?
+  clarityGrade      String?
+  /// loose | certified
+  sourcing          String?
+  certificateNumber String?
+  certificateLab    String?
+}
+
+model FindingPurchase {
+  id          String  @id @default(cuid())
+  productId   String
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  description String
+  sourceShop  String?
+  costCents   Int
+  invoiceRef  String?
+  assetId     String?
+  asset       Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+}
+
+model StatementBatch {
+  id                String   @id @default(cuid())
+  name              String?
+  notes             String?
+  totalMatchedCents Int      @default(0)
+  paymentStatus     String   @default("unpaid")
+  paidAmountCents   Int?
+  paidAt            DateTime?
+  paymentMethod     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lines             StatementLine[]
+}
+
+model StatementLine {
+  id                 String          @id @default(cuid())
+  statementBatchId   String
+  batch              StatementBatch  @relation(fields: [statementBatchId], references: [id], onDelete: Cascade)
+  vendorInvoiceId    String?
+  invoice            VendorInvoice?  @relation(fields: [vendorInvoiceId], references: [id], onDelete: SetNull)
+  rawInvoiceNo       String?
+}
+
+model ExtractionJob {
+  id             String   @id @default(cuid())
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  assetId        String
+  asset          Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  kind           String
+  status         String   @default("pending")
+  ocrText        String?
+  extractedJson  String?
+  confidenceJson String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  entityType  String
+  entityId    String
+  action      String
+  payloadJson String?
+  createdAt   DateTime @default(now())
+}
