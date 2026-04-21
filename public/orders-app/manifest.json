@@ -1,0 +1,24 @@
+{
+  "name": "LabGrownBox Production Pipeline",
+  "short_name": "LGB Orders",
+  "description": "Jewelry order management and production tracking",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d1420",
+  "theme_color": "#0f1623",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Order",
+      "short_name": "New Order",
+      "description": "Create a new production order",
+      "url": "./index.html?action=new"
+    }
+  ]
+}

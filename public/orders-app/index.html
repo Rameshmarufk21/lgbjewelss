@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0d2b6e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LGB Orders">
+<link rel="manifest" href="manifest.json">
+<title>LabGrownBox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+.nav,.watermark{display:none!important}
+body{background:transparent!important}
+:root{
+  --cream:#FDF6EC;--cream2:#F5EDD8;--cream3:#EDE0C8;
+  --peacock:#0d2b6e;--peacock2:#0a235a;--peacock3:#1c4ea0;
+  --peacock-lt:#E0F0F0;--peacock-xl:#F0F8F8;
+  --gold:#B8963E;--gold2:#D4AF5A;
+  --danger:#C0392B;--success:#1A6B3C;
+  --text:#1C1A16;--text2:#4A4438;--text3:#9A8F7A;
+  --border:#DDD5C4;--border2:#CEC4B0;
+  --shadow:0 2px 8px rgba(15,50,40,.08),0 1px 3px rgba(15,50,40,.06);
+  --shadow-md:0 4px 20px rgba(15,50,40,.14),0 2px 6px rgba(15,50,40,.08);
+  --shadow-lg:0 8px 40px rgba(15,50,40,.18),0 4px 12px rgba(15,50,40,.1);
+  --radius:14px;--radius-sm:8px;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'DM Sans',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{font-family:var(--sans);background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden}
+button{cursor:pointer;font-family:var(--sans);border:none;outline:none;background:none}
+input,select,textarea{font-family:var(--sans);outline:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--cream2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+.watermark{position:fixed;inset:0;pointer-events:none;z-index:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.watermark::before{content:'';width:min(84vw,820px);height:min(84vh,820px);background:url("assets/watermark-logo.png") center/contain no-repeat;opacity:.11;transform:translateY(4%)}
+
+.nav{position:sticky;top:0;z-index:100;background:var(--peacock);height:62px;display:flex;align-items:center;gap:14px;padding:0 22px;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.nav-logo{display:flex;align-items:center;gap:10px;color:var(--cream);flex-shrink:0}
+.nav-logo img{width:34px;height:34px;object-fit:contain;display:block}
+.nav-logo-text{display:flex;flex-direction:column;line-height:1}
+.nav-logo-name{font-family:var(--serif);font-size:1.22rem;font-weight:700;letter-spacing:.12em;color:var(--cream)}
+.nav-logo-tag{font-size:.52rem;letter-spacing:.2em;color:rgba(253,246,236,.5);text-transform:uppercase;margin-top:2px}
+.nav-search{flex:1;max-width:380px;display:flex;align-items:center;gap:8px;background:rgba(253,246,236,.08);border:1px solid rgba(253,246,236,.18);border-radius:var(--radius-sm);padding:0 12px;height:36px}
+.nav-search:focus-within{background:rgba(253,246,236,.14)}
+.nav-search input{background:none;border:none;color:var(--cream);font-size:.82rem;width:100%}
+.nav-search input::placeholder{color:rgba(253,246,236,.38)}
+.nav-search svg{color:rgba(253,246,236,.38);flex-shrink:0}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:7px}
+.nav-icon{width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:rgba(253,246,236,.6);border-radius:var(--radius-sm);transition:all .15s;border:1px solid transparent;position:relative}
+.nav-icon:hover{color:var(--cream);background:rgba(253,246,236,.1);border-color:rgba(253,246,236,.15)}
+.nav-icon-lbl{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:.58rem;color:rgba(253,246,236,.5);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}
+.nav-icon:hover .nav-icon-lbl{opacity:1}
+.btn-new-nav{display:flex;align-items:center;gap:6px;background:var(--gold);color:var(--peacock2);font-weight:600;font-size:.8rem;padding:0 14px;height:36px;border-radius:var(--radius-sm);letter-spacing:.02em;transition:all .2s}
+.btn-new-nav:hover{background:var(--gold2);transform:translateY(-1px);box-shadow:0 4px 12px rgba(184,150,62,.4)}
+
+.main{padding:24px 22px 100px;max-width:1320px;margin:0 auto;position:relative;z-index:1}
+.page-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.page-title{font-family:var(--serif);font-size:1.8rem;font-weight:600;color:var(--peacock2);letter-spacing:-.01em}
+.page-sub{font-size:.78rem;color:var(--text3);margin-top:2px}
+.page-sub .linkish{background:none;border:none;padding:0;font:inherit;color:var(--peacock);text-decoration:underline;cursor:pointer;font-weight:600}
+.page-sub .linkish:hover{color:var(--peacock2)}
+.view-tgs{display:flex;gap:4px}
+.vbtn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text3);transition:all .15s}
+.vbtn.active{background:var(--peacock);color:var(--cream);border-color:var(--peacock)}
+
+.tabs-row{display:flex;align-items:center;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);flex-wrap:wrap}
+.tab{display:flex;align-items:center;gap:5px;padding:8px 15px;font-size:.8rem;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;transition:all .15s}
+.tab:hover{color:var(--peacock)}
+.tab.active{color:var(--peacock);border-bottom-color:var(--peacock);font-weight:700}
+.cnt{background:var(--cream2);color:var(--text2);border-radius:99px;font-size:.67rem;padding:1px 7px;font-weight:700;border:1px solid var(--border)}
+.tab.active .cnt{background:var(--peacock);color:var(--cream);border-color:var(--peacock)}
+
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:15px;width:100%}
+.order-card{background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:box-shadow .2s,transform .2s,border-color .2s;position:relative;min-width:0}
+.order-card.order-card--err{border:2px solid var(--danger);box-shadow:0 0 0 1px rgba(192,57,43,.2)}
+.order-card:hover{box-shadow:var(--shadow-md);transform:translateY(-3px);border-color:var(--peacock3)}
+.order-card.order-card--err:hover{border-color:var(--danger)}
+.order-card::before{content:'';position:absolute;bottom:-18px;right:-18px;width:95px;height:95px;background:url("assets/card-diamond.png") center/contain no-repeat;opacity:.08;pointer-events:none;z-index:0}
+.card-img{width:100%;aspect-ratio:4/3;background:linear-gradient(135deg,var(--peacock-xl) 0%,var(--cream3) 100%);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.card-del{position:absolute;top:10px;right:10px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(255,255,255,.65);background:rgba(14,24,50,.56);color:#fff;z-index:3;transition:all .15s}
+.card-del:hover{background:#FEE2E2;color:var(--danger);border-color:#FECACA}
+.card-del svg{pointer-events:none}
+.card-photo{width:100%;height:100%;object-fit:cover;display:block}
+.card-placeholder{display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--text3);z-index:1}
+.card-placeholder img{width:48px;height:48px;object-fit:contain;opacity:.2}
+.card-placeholder span{font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.badge{position:absolute;top:10px;left:10px;padding:3px 9px;border-radius:6px;font-size:.68rem;font-weight:700;letter-spacing:.03em}
+.list-badge{position:static;display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:.68rem;font-weight:700;letter-spacing:.03em}
+.b-inquiry{background:#DBEAFE;color:#1E40AF}
+.b-casting{background:#FEF9C3;color:#78350F}
+.b-setter{background:#D1FAE5;color:#065F46}
+.b-hold{background:#FFEDD5;color:#7C2D12}
+.b-blocked{background:#FEE2E2;color:#7F1D1D}
+.b-completed{background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0}
+.card-body{padding:13px 14px 8px;position:relative;z-index:1}
+.card-date{float:right;font-size:.71rem;color:var(--text3);font-weight:500;margin-top:3px}
+.card-name{font-family:var(--serif);font-size:1.02rem;font-weight:600;color:var(--peacock2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;clear:both}
+.card-code{font-size:.69rem;color:var(--gold);font-weight:600;margin-top:2px;letter-spacing:.05em}
+.card-by{font-size:.75rem;color:var(--text2);margin-top:7px;display:flex;align-items:center;gap:5px}
+.dot{width:20px;height:20px;border-radius:50%;font-size:.6rem;font-weight:700;color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dk{background:#0F5F5F}.ds{background:#7C3AED}.dsh{background:#BE185D}.dkh{background:#B45309}.do{background:#6B7280}
+.card-foot{padding:8px 14px 12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);margin-top:8px;position:relative;z-index:1}
+.card-vendor{font-size:.68rem;color:var(--text3);font-style:italic}
+.card-cost{font-size:.82rem;font-weight:700;color:var(--peacock)}
+.card-cost.nc{color:var(--text3);font-weight:400;font-style:italic}
+
+.list-hd{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:10px;padding:6px 16px;font-size:.67rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.orders-list{display:flex;flex-direction:column;gap:5px}
+.list-row{background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;align-items:center;gap:10px;cursor:pointer;transition:all .15s}
+.list-row:hover{border-color:var(--peacock);box-shadow:var(--shadow);background:var(--cream)}
+.list-row.order-card--err{border-color:var(--danger);box-shadow:inset 0 0 0 1px rgba(192,57,43,.25)}
+.ln{font-family:var(--serif);font-weight:600;font-size:1rem;color:var(--peacock2)}
+.ls{font-size:.7rem;color:var(--text3)}
+.lc{font-size:.8rem;color:var(--text2)}
+.lv{font-size:.83rem;font-weight:700;color:var(--peacock)}
+
+.empty{grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--text3)}
+.empty svg{width:48px;height:48px;margin-bottom:10px;opacity:.2}
+.empty p{font-family:var(--serif);font-size:1.1rem}
+
+.fab{position:fixed;bottom:28px;right:28px;z-index:150;width:56px;height:56px;border-radius:50%;background:var(--peacock);color:var(--cream);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(13,43,110,.45);transition:all .2s;font-size:1.6rem;line-height:1}
+.fab:hover{background:var(--peacock3);transform:scale(1.1) rotate(90deg);box-shadow:0 6px 28px rgba(13,43,110,.55)}
+.fab:active{transform:scale(.96)}
+
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(10,20,20,.58);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--cream);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow-lg);width:100%;max-width:660px;margin:auto;transform:translateY(12px);transition:transform .22s;display:flex;flex-direction:column;max-height:88vh}
+.overlay.open .modal{transform:translateY(0)}
+.mhd{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--cream);border-radius:var(--radius) var(--radius) 0 0}
+.mtitle{font-family:var(--serif);font-size:1.18rem;font-weight:600;color:var(--peacock2)}
+.mclose{width:30px;height:30px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;color:var(--text2);background:var(--cream2);border:1px solid var(--border);transition:all .15s}
+.mclose:hover{background:#FEE2E2;color:var(--danger);border-color:#FECACA}
+.mbody{padding:20px 22px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;flex:1}
+.mfoot{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:var(--cream);border-radius:0 0 var(--radius) var(--radius)}
+
+.slabel{font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--peacock);padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.fg{display:flex;flex-direction:column;gap:4px}
+label{font-size:.74rem;color:var(--text2);font-weight:600}
+.fc{background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 11px;font-size:.84rem;width:100%;transition:all .15s}
+.fc:focus{border-color:var(--peacock);background:var(--cream);box-shadow:0 0 0 3px rgba(13,43,110,.14)}
+.fc::placeholder{color:var(--text3)}
+select.fc{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%239A8F7A' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
+textarea.fc{resize:vertical;min-height:68px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+.snote{background:var(--peacock-xl);border:1px solid rgba(15,95,95,.2);border-radius:var(--radius-sm);padding:11px 13px;font-size:.76rem;color:var(--peacock2);line-height:1.5}
+.snote strong{color:var(--peacock)}
+
+.stabs{display:flex;gap:5px;flex-wrap:wrap}
+.stab{padding:4px 11px;border-radius:99px;font-size:.75rem;background:var(--cream2);color:var(--text2);border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.stab.active{background:var(--peacock);color:var(--cream);border-color:var(--peacock)}
+.sdrop{border:2px dashed var(--border2);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:all .18s;position:relative;background:var(--cream2)}
+.sdrop:hover,.sdrop.over{border-color:var(--peacock);background:var(--peacock-xl)}
+.sdrop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.sdrop-icon{font-size:1.5rem}
+.sdrop-lbl{font-size:.82rem;color:var(--text2);margin-top:4px;font-weight:600}
+.sdrop-sub{font-size:.7rem;color:var(--text3);margin-top:2px}
+.aiprog{display:none;align-items:center;gap:8px;padding:7px 0;font-size:.78rem;color:var(--peacock)}
+.aiprog.show{display:flex}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--peacock);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.airesult{display:none;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:var(--radius-sm);padding:11px;font-size:.76rem}
+.airesult.show{display:block}
+.airow{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #D1FAE5}
+.airow:last-child{border:none}
+.aik{color:var(--text2)}.aiv{color:var(--peacock2);font-weight:700}
+.aihd{color:#065F46;font-weight:700;margin-bottom:5px}
+
+.xlist{display:flex;flex-direction:column;gap:5px}
+.xrow{display:grid;grid-template-columns:1fr 88px 28px;gap:5px;align-items:center}
+.btn-rm{width:28px;height:28px;border-radius:var(--radius-sm);background:#FEE2E2;color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:.85rem;transition:background .15s}
+.btn-rm:hover{background:#FECACA}
+.btn-ax{display:flex;align-items:center;gap:5px;background:var(--cream2);border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:7px 12px;color:var(--text2);font-size:.78rem;width:fit-content;transition:all .15s}
+.btn-ax:hover{border-color:var(--peacock);color:var(--peacock)}
+
+.btn{display:flex;align-items:center;gap:5px;padding:0 16px;height:36px;border-radius:var(--radius-sm);font-size:.82rem;font-weight:600;transition:all .15s}
+.btn-p{background:var(--peacock);color:var(--cream)}
+.btn-p:hover{background:var(--peacock3);box-shadow:0 4px 12px rgba(13,43,110,.3)}
+.btn-g{background:var(--cream2);color:var(--text2);border:1px solid var(--border)}
+.btn-g:hover{color:var(--text);border-color:var(--border2)}
+.btn-r{background:#FEE2E2;color:var(--danger)}
+.btn-r:hover{background:#FECACA}
+.btn-gold{background:var(--gold);color:var(--peacock2)}
+.btn-gold:hover{background:var(--gold2)}
+.btn-sm{height:30px;padding:0 12px;font-size:.76rem}
+
+.detail-modal{max-width:780px}
+.dsections{display:flex;flex-direction:column;gap:12px}
+.dbox{background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.dbox-hd{padding:9px 14px;border-bottom:1px solid var(--border);font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--peacock)}
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr)}
+.dcell{padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.dcell:nth-child(3n){border-right:none}
+.dclabel{font-size:.64rem;color:var(--text3);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.dcval{font-size:.85rem;color:var(--text);font-weight:600}
+.dcval.hi{color:var(--peacock)}
+.dcval.gold{color:var(--gold)}
+
+/* Order detail — resolution / validation panel */
+.issue-panel.dbox{border-color:rgba(192,57,43,.45);background:linear-gradient(180deg,#fffaf9 0%,var(--cream2) 42%)}
+.issue-panel .issue-panel-hd{color:var(--danger);font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:12px 16px;border-bottom:1px solid rgba(192,57,43,.2)}
+.issue-body{padding:16px 18px 18px}
+.issue-err-list{margin:0 0 16px;padding-left:1.2rem;font-size:.84rem;line-height:1.55;color:var(--text2);font-family:var(--sans)}
+.issue-err-list li{margin-bottom:8px;padding-left:2px}
+.issue-fields{display:flex;flex-direction:column;gap:16px}
+.issue-field label{display:block;font-size:.78rem;font-weight:600;color:var(--text2);margin-bottom:7px;letter-spacing:.01em}
+.issue-field textarea.fc{min-height:72px;font-size:.84rem;line-height:1.45}
+.issue-field input.fc{font-size:.84rem}
+.issue-row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.issue-hint{font-size:.74rem;color:var(--text3);line-height:1.45;margin-top:-4px}
+.issue-checks{display:flex;flex-direction:column;gap:12px;padding-top:2px}
+.issue-checks label{font-size:.8rem;font-weight:500;color:var(--text);display:flex;align-items:flex-start;gap:10px;line-height:1.4;cursor:pointer}
+.issue-checks input[type=checkbox]{margin-top:4px;width:16px;height:16px;flex-shrink:0;accent-color:var(--peacock)}
+.issue-save{margin-top:4px}
+
+.stepper{display:flex;padding:14px 16px;overflow-x:auto}
+.step{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:68px;position:relative}
+.step:not(:last-child)::after{content:'';position:absolute;top:11px;left:50%;width:100%;height:2px;background:var(--border);z-index:0}
+.step.done:not(:last-child)::after{background:var(--peacock)}
+.sdot{width:22px;height:22px;border-radius:50%;z-index:1;background:var(--cream);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;transition:all .2s}
+.step.done .sdot{background:var(--peacock);border-color:var(--peacock);color:var(--cream)}
+.step.active .sdot{border-color:var(--peacock);box-shadow:0 0 0 3px rgba(13,43,110,.2)}
+.slbl{font-size:.63rem;color:var(--text3);text-align:center}
+.step.active .slbl{color:var(--peacock);font-weight:700}
+.step.done .slbl{color:var(--text2)}
+
+.cost-bar{display:flex;background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.ci{flex:1;padding:11px 13px;border-right:1px solid var(--border)}
+.ci:last-child{border-right:none;background:var(--peacock)}
+.ci:last-child .cil{color:rgba(253,246,236,.6)}
+.ci:last-child .civ{color:var(--cream)}
+.cil{font-size:.64rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.civ{font-size:.93rem;font-weight:700;color:var(--text)}
+
+.stbtns{display:flex;gap:5px;flex-wrap:wrap;padding:11px 14px}
+.stbtn{padding:4px 11px;border-radius:99px;font-size:.76rem;font-weight:600;border:1.5px solid var(--border);color:var(--text2);background:var(--cream);transition:all .15s;cursor:pointer}
+.stbtn:hover{border-color:var(--peacock);color:var(--peacock)}
+.stbtn.cur{background:var(--peacock);color:var(--cream);border-color:var(--peacock)}
+.qv-wrap{background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.qv-hd{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--peacock);margin-bottom:8px}
+.qv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.qv-item{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--cream);cursor:pointer;transition:all .15s}
+.qv-item:hover{border-color:var(--peacock);box-shadow:var(--shadow)}
+.qv-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.qv-cap{font-size:.66rem;color:var(--text2);padding:4px 6px}
+
+.toasts{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.toast{background:var(--peacock2);color:var(--cream);border-radius:var(--radius-sm);padding:10px 14px;font-size:.8rem;display:flex;align-items:center;gap:7px;box-shadow:var(--shadow-lg);animation:tIn .2s ease;max-width:280px;pointer-events:all}
+.toast.ok{background:var(--success)}
+.toast.err{background:var(--danger)}
+.toast.info{background:var(--peacock)}
+@keyframes tIn{from{transform:translateX(16px);opacity:0}}
+
+@media(max-width:640px){
+  .issue-row2{grid-template-columns:1fr}
+  .nav{padding:0 12px}
+  .nav-logo-tag{display:none}
+  .main{padding:12px 12px 90px}
+  .fg2,.fg3{grid-template-columns:1fr}
+  .dgrid{grid-template-columns:1fr 1fr}
+  .dcell:nth-child(3n){border-right:1px solid var(--border)}
+  .dcell:nth-child(2n){border-right:none}
+  .modal{border-radius:var(--radius) var(--radius) 0 0;margin:0;max-height:95vh}
+  .overlay{padding:0;align-items:flex-end}
+  .cost-bar{flex-wrap:wrap}
+  .ci{border-bottom:1px solid var(--border)}
+  .list-row{grid-template-columns:1fr auto}
+  .list-row>*:not(:first-child):not(:last-child){display:none}
+  .list-hd{display:none}
+  .fab{bottom:20px;right:20px;width:50px;height:50px}
+}
+</style>
+</head>
+<body>
+
+<!-- Synced from Next.js nav search via postMessage (id required by render pipeline) -->
+<input
+  id="searchInput"
+  type="search"
+  autocomplete="off"
+  tabindex="-1"
+  aria-hidden="true"
+  style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0"
+/>
+
+<div class="watermark"></div>
+
+
+
+<main class="main">
+  <div class="page-hd">
+    <div>
+      <h1 class="page-title">Orders</h1>
+      <p class="page-sub" id="pageSub">All active custom orders · <button type="button" class="linkish" onclick="downloadExcel()" title="Download CSV">Export CSV</button></p>
+    </div>
+    <div class="view-tgs">
+      <button class="vbtn active" id="gridBtn" onclick="setView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+      <button class="vbtn" id="listBtn" onclick="setView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+    </div>
+  </div>
+  <div class="tabs-row" id="tabsRow"></div>
+  <div id="container"></div>
+</main>
+
+<button class="fab" onclick="openNewOrder()" title="New Order">+</button>
+<div class="toasts" id="toasts"></div>
+
+<!-- NEW ORDER -->
+<div class="overlay" id="newOrderOverlay" onclick="bgClose(event,'newOrderOverlay')">
+<div class="modal">
+  <div class="mhd"><span class="mtitle" id="newTitle">New Order</span><button class="mclose" onclick="closeOverlay('newOrderOverlay')">✕</button></div>
+  <div class="mbody">
+    <div>
+      <div class="stabs" style="margin-bottom:10px">
+        <button class="stab active" onclick="setScan(this,'casting')">Casting Invoice</button>
+        <button class="stab" onclick="setScan(this,'setting')">Setting Invoice</button>
+        <button class="stab" onclick="setScan(this,'memo')">Stone Memo</button>
+        <button class="stab" onclick="setScan(this,'spec')">Spec Sheet</button>
+      </div>
+      <div class="sdrop" id="sdrop">
+        <input type="file" id="fInput" accept="image/*" multiple onchange="handleFile(event)">
+        <div class="sdrop-icon">📷</div>
+        <div class="sdrop-lbl">Tap to photograph or upload document</div>
+        <div class="sdrop-sub">Casting · Setting · Stone memo · Spec sheet (you can select multiple images)</div>
+        <div id="scanPreview" style="display:none;margin-top:12px"></div>
+      </div>
+      <div class="aiprog" id="aiprog"><div class="spin"></div> Reading with AI…</div>
+      <div class="airesult" id="airesult"></div>
+    </div>
+    <div><div class="slabel">Order Details</div><div class="fg2" style="margin-top:10px">
+      <div class="fg"><label>Style Code *</label><input class="fc" id="f_styleCode" placeholder="e.g. SFR-63"></div>
+      <div class="fg"><label>Product Type *</label><select class="fc" id="f_productType"><option value="">Select…</option><option>Ring</option><option>Bracelet</option><option>Earring</option><option>Necklace</option><option>Pendant</option><option>Bangle</option><option>Other</option></select></div>
+      <div class="fg"><label>Metal</label><select class="fc" id="f_metal"><option value="">Select…</option><option>Platinum</option><option>14K White Gold</option><option>14K Yellow Gold</option><option>14K Rose Gold</option><option>18K White Gold</option><option>18K Yellow Gold</option><option>10K White Gold</option><option>Silver</option></select></div>
+      <div class="fg"><label>Size</label><input class="fc" id="f_size" placeholder="e.g. 10-US"></div>
+      <div class="fg"><label>Placed By</label><select class="fc" id="f_placedBy"><option value="">Select…</option><option>Kunal</option><option>Sagar</option><option>Shweta</option><option>Khushi</option><option>Other</option></select></div>
+      <div class="fg"><label>Status</label><select class="fc" id="f_status"><option value="Inquiry">Inquiry</option><option value="Casting">Casting</option><option value="At Setter">At Setter</option><option value="Hold">Hold</option><option value="Blocked">Blocked</option><option value="Completed">Completed</option></select></div>
+    </div></div>
+    <div><div class="slabel">Casting</div><div class="fg3" style="margin-top:10px">
+      <div class="fg"><label>Vendor</label><select class="fc" id="f_castVendor"><option value="">Select…</option><option>MTA Casting Hub</option><option>CARAT</option><option>Other</option></select></div>
+      <div class="fg"><label>Invoice #</label><input class="fc" id="f_castInvoice" placeholder="e.g. T9Q48"></div>
+      <div class="fg"><label>Date</label><input class="fc" type="date" id="f_castDate"></div>
+      <div class="fg"><label>Weight DWT</label><input class="fc" id="f_castDWT" placeholder="9.37"></div>
+      <div class="fg"><label>Weight (g)</label><input class="fc" id="f_castGrams" placeholder="14.53"></div>
+      <div class="fg"><label>Print Fee $</label><input class="fc" id="f_castPrint" placeholder="72"></div>
+      <div class="fg"><label>Cast Total $</label><input class="fc" id="f_castTotal" placeholder="1240.19"></div>
+      <div class="fg"><label>Picked Up By</label><input class="fc" id="f_castPickup" placeholder="Name"></div>
+      <div class="fg"><label>Pickup Date</label><input class="fc" type="date" id="f_castPickupDate"></div>
+    </div></div>
+    <div><div class="slabel">Stones</div><div class="fg2" style="margin-top:10px">
+      <div class="fg"><label>Shape</label><select class="fc" id="f_stoneShape"><option value="">Select…</option><option>Round (RND)</option><option>Oval</option><option>Marquise (MQ)</option><option>Princess</option><option>Cushion</option><option>Pear</option><option>Emerald</option><option>Radiant</option><option>Baguette</option><option>Mixed</option></select></div>
+      <div class="fg"><label>Color</label><select class="fc" id="f_stoneColor"><option value="White">White (default)</option><option>Yellow</option><option>Pink</option><option>Blue</option><option>Green</option><option>Black</option><option>Champagne</option></select></div>
+      <div class="fg"><label>Sieve</label><input class="fc" id="f_stoneSieve" placeholder="+1.5-2.0"></div>
+      <div class="fg"><label>MM Size</label><input class="fc" id="f_stoneMM" placeholder="1.2 or 13.92x9.71"></div>
+      <div class="fg"><label>Qty (pcs)</label><input class="fc" id="f_stonePcs" placeholder="38"></div>
+      <div class="fg"><label>Total Carats</label><input class="fc" id="f_stoneCt" placeholder="9.04"></div>
+      <div class="fg"><label>Price / Ct $</label><input class="fc" id="f_stonePrice" placeholder="123"></div>
+      <div class="fg"><label>Stone Total $</label><input class="fc" id="f_stoneTotal" placeholder="auto or manual"></div>
+      <div class="fg"><label>Lot #</label><input class="fc" id="f_stoneLot" placeholder="39"></div>
+      <div class="fg"><label>Cert # (IGI/GIA)</label><input class="fc" id="f_stoneCert" placeholder="Optional"></div>
+    </div></div>
+    <div><div class="slabel">Setting</div><div class="fg3" style="margin-top:10px">
+      <div class="fg"><label>Setter</label><select class="fc" id="f_setter"><option value="">Select…</option><option>Victor</option><option>JYMP</option><option>Edwin</option><option>MC Production</option><option>Other</option></select></div>
+      <div class="fg"><label>Invoice #</label><input class="fc" id="f_setInvoice" placeholder="10449"></div>
+      <div class="fg"><label>Date</label><input class="fc" type="date" id="f_setDate"></div>
+      <div class="fg"><label>Setting $</label><input class="fc" id="f_setPrice" placeholder="2.50"></div>
+      <div class="fg"><label>Labor $</label><input class="fc" id="f_setLabor" placeholder="15.00"></div>
+      <div class="fg"><label>Laser $</label><input class="fc" id="f_setLaser" placeholder="0"></div>
+      <div class="fg"><label>Set Total $</label><input class="fc" id="f_setTotal" placeholder="35.00"></div>
+      <div class="fg"><label>Job Type</label><input class="fc" id="f_setJob" placeholder="Setting & Repair"></div>
+      <div class="fg"><label>ST # (stones)</label><input class="fc" id="f_setST" placeholder="8"></div>
+    </div></div>
+    <div>
+      <div class="slabel">Extras / Complications</div>
+      <div class="xlist" id="xList" style="margin-top:10px"></div>
+      <button class="btn-ax" style="margin-top:7px" onclick="addExtra()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Add extra (tongue, lock, recast…)
+      </button>
+    </div>
+    <div class="fg"><label>Linked prior order (rework)</label><input class="fc" id="f_linkedOrderId" placeholder="e.g. ORD-001 — link to original job"></div>
+    <div class="fg"><label>Notes</label><textarea class="fc" id="f_notes" placeholder="Complications, instructions, status notes…"></textarea></div>
+  </div>
+  <div class="mfoot">
+    <button class="btn btn-g" onclick="closeOverlay('newOrderOverlay')">Cancel</button>
+    <button class="btn btn-p" onclick="saveOrder()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save Order
+    </button>
+  </div>
+</div>
+</div>
+
+<!-- DETAIL -->
+<div class="overlay" id="detailOverlay" onclick="bgClose(event,'detailOverlay')">
+<div class="modal detail-modal">
+  <div class="mhd">
+    <div><div class="mtitle" id="dTitle"></div><div style="font-size:.7rem;color:var(--text3);margin-top:1px" id="dSub"></div></div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-g btn-sm" onclick="editCurrent()">Edit</button>
+      <button class="mclose" onclick="closeOverlay('detailOverlay')">✕</button>
+    </div>
+  </div>
+  <div class="mbody" id="dBody"></div>
+</div>
+</div>
+
+<script>
+let orders=JSON.parse(localStorage.getItem('lgb_orders')||'[]');
+let view='grid',tab='All',scanType='casting',editId=null,pendingScanImageDataUrl=null,pendingExtraction=null;
+const STATUSES=['All','Inquiry','Casting','At Setter','Hold','Blocked','Completed','Errors'];
+const STEPS=['Inquiry','Casting','At Setter','Completed'];
+const BADGE={Inquiry:'b-inquiry',Casting:'b-casting','At Setter':'b-setter',Hold:'b-hold',Blocked:'b-blocked',Completed:'b-completed'};
+const DOTCLS={kunal:'dk',sagar:'ds',shweta:'dsh',khushi:'dkh'};
+const FKEYS=['styleCode','productType','metal','size','placedBy','status','castVendor','castInvoice','castDate','castDWT','castGrams','castPrint','castTotal','castPickup','castPickupDate','stoneShape','stoneColor','stoneSieve','stoneMM','stonePcs','stoneCt','stonePrice','stoneTotal','stoneLot','stoneCert','setter','setInvoice','setDate','setPrice','setLabor','setLaser','setTotal','setJob','setST','linkedOrderId','notes'];
+
+if(!orders.length){
+orders=[
+{id:'ORD-001',styleCode:'SFR-63',productType:'Ring',metal:'Platinum',size:'10-US',status:'Casting',placedBy:'Kunal',createdAt:'2026-03-26',castVendor:'MTA Casting Hub',castInvoice:'T9Q48',castDate:'2026-03-26',castDWT:'9.37',castGrams:'14.53',castPrint:'72',castTotal:'1240.19',stoneShape:'Round (RND)',stoneColor:'White',stoneSieve:'+1.5-2.0',stoneMM:'1.2',stonePcs:'38',stoneCt:'0.304',stonePrice:'',stoneTotal:'',stoneLot:'',stoneCert:'',setter:'',setInvoice:'',setDate:'',setPrice:'',setLabor:'',setLaser:'',setTotal:'',setJob:'',setST:'',extras:[],notes:'Center oval 13.92x9.71mm',imageUrl:'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=1200&q=80'},
+{id:'ORD-002',styleCode:'SFRBR-03',productType:'Bracelet',metal:'Platinum',size:'',status:'At Setter',placedBy:'Sagar',createdAt:'2026-03-26',castVendor:'MTA Casting Hub',castInvoice:'',castDate:'2026-03-25',castDWT:'',castGrams:'',castPrint:'',castTotal:'',stoneShape:'Round (RND)',stoneColor:'White',stoneSieve:'',stoneMM:'3.9-4.0mm',stonePcs:'39',stoneCt:'9.04',stonePrice:'123',stoneTotal:'1111.92',stoneLot:'39',stoneCert:'',setter:'MC Production',setInvoice:'',setDate:'',setPrice:'',setLabor:'',setLaser:'',setTotal:'',setJob:'',setST:'',extras:[{desc:'Tongue for clasp',cost:'45'}],notes:'',imageUrl:'https://images.unsplash.com/photo-1611652022419-a9419f74343d?auto=format&fit=crop&w=1200&q=80'},
+{id:'ORD-003',styleCode:'SFE-14',productType:'Earring',metal:'14K White Gold',size:'',status:'Completed',placedBy:'Khushi',createdAt:'2026-03-27',castVendor:'MTA Casting Hub',castInvoice:'',castDate:'',castDWT:'',castGrams:'',castPrint:'',castTotal:'',stoneShape:'Marquise (MQ)',stoneColor:'White',stoneSieve:'',stoneMM:'',stonePcs:'1',stoneCt:'',stonePrice:'',stoneTotal:'',stoneLot:'',stoneCert:'',setter:'MC Production',setInvoice:'10449',setDate:'2026-03-27',setPrice:'2.50',setLabor:'15.00',setLaser:'0',setTotal:'35.00',setJob:'Setting & Repair',setST:'8',extras:[],notes:'',imageUrl:'https://images.unsplash.com/photo-1635767798638-3e25273a8236?auto=format&fit=crop&w=1200&q=80'},
+{id:'ORD-004',styleCode:'SFR-71',productType:'Ring',metal:'18K White Gold',size:'7-US',status:'Inquiry',placedBy:'Shweta',createdAt:'2026-04-01',castVendor:'',castInvoice:'',castDate:'',castDWT:'',castGrams:'',castPrint:'',castTotal:'',stoneShape:'Oval',stoneColor:'White',stoneSieve:'',stoneMM:'',stonePcs:'',stoneCt:'',stonePrice:'',stoneTotal:'',stoneLot:'',stoneCert:'',setter:'',setInvoice:'',setDate:'',setPrice:'',setLabor:'',setLaser:'',setTotal:'',setJob:'',setST:'',extras:[],notes:'Waiting on size confirmation'},
+{id:'ORD-005',styleCode:'SFPN-08',productType:'Pendant',metal:'14K Yellow Gold',size:'',status:'Casting',placedBy:'Kunal',createdAt:'2026-04-02',castVendor:'CARAT',castInvoice:'C-2201',castDate:'2026-04-02',castDWT:'5.12',castGrams:'7.98',castPrint:'45',castTotal:'680.00',stoneShape:'Oval',stoneColor:'White',stoneSieve:'',stoneMM:'',stonePcs:'12',stoneCt:'1.44',stonePrice:'85',stoneTotal:'122.40',stoneLot:'',stoneCert:'',setter:'',setInvoice:'',setDate:'',setPrice:'',setLabor:'',setLaser:'',setTotal:'',setJob:'',setST:'',extras:[],notes:'',imageUrl:'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80'},
+{id:'ORD-006',styleCode:'SFBR-22',productType:'Bracelet',metal:'18K White Gold',size:'',status:'Hold',placedBy:'Sagar',createdAt:'2026-04-03',castVendor:'MTA Casting Hub',castInvoice:'T9Q91',castDate:'2026-04-03',castDWT:'12.40',castGrams:'19.30',castPrint:'90',castTotal:'2100.00',stoneShape:'Round (RND)',stoneColor:'White',stoneSieve:'',stoneMM:'',stonePcs:'64',stoneCt:'6.20',stonePrice:'110',stoneTotal:'682.00',stoneLot:'',stoneCert:'',setter:'Edwin',setInvoice:'',setDate:'',setPrice:'',setLabor:'',setLaser:'',setTotal:'',setJob:'',setST:'',extras:[{desc:'Waiting for client approval',cost:'0'}],notes:'Client wants to upgrade stones'},
+{id:'ORD-007',styleCode:'SFR-88',productType:'Ring',metal:'Platinum',size:'8-US',status:'At Setter',placedBy:'Khushi',createdAt:'2026-04-04',castVendor:'MTA Casting Hub',castInvoice:'T9Q99',castDate:'2026-04-04',castDWT:'6.80',castGrams:'10.57',castPrint:'72',castTotal:'1050.00',stoneShape:'Princess',stoneColor:'White',stoneSieve:'',stoneMM:'',stonePcs:'24',stoneCt:'1.92',stonePrice:'140',stoneTotal:'268.80',stoneLot:'',stoneCert:'',setter:'Victor',setInvoice:'10512',setDate:'2026-04-04',setPrice:'3.50',setLabor:'18.00',setLaser:'0',setTotal:'42.00',setJob:'Setting',setST:'24',extras:[{desc:'Lock replacement',cost:'30'}],notes:'',imageUrl:'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=1200&q=80'},
+{id:'ORD-008',styleCode:'SFNG-05',productType:'Necklace',metal:'18K Rose Gold',size:'',status:'Completed',placedBy:'Shweta',createdAt:'2026-04-05',castVendor:'CARAT',castInvoice:'C-2215',castDate:'2026-04-05',castDWT:'8.90',castGrams:'13.84',castPrint:'60',castTotal:'950.00',stoneShape:'Pear',stoneColor:'White',stoneSieve:'',stoneMM:'',stonePcs:'8',stoneCt:'2.10',stonePrice:'200',stoneTotal:'420.00',stoneLot:'',stoneCert:'',setter:'JYMP',setInvoice:'10520',setDate:'2026-04-05',setPrice:'5.00',setLabor:'22.00',setLaser:'0',setTotal:'55.00',setJob:'Setting',setST:'8',extras:[],notes:''},
+];persist();
+}
+const DEMO_IMAGE='https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=1200&q=80';
+const demoOrder=orders.find(o=>o.id==='ORD-001');
+if(demoOrder && (!demoOrder.imageUrl || demoOrder.imageUrl.startsWith('file:///') || demoOrder.imageUrl.startsWith('assets/demo-ring'))){demoOrder.imageUrl=DEMO_IMAGE;persist();}
+const DEMO_IMAGES_BY_ID={
+  'ORD-002':'https://images.unsplash.com/photo-1611652022419-a9419f74343d?auto=format&fit=crop&w=1200&q=80',
+  'ORD-003':'https://images.unsplash.com/photo-1635767798638-3e25273a8236?auto=format&fit=crop&w=1200&q=80',
+  'ORD-005':'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80',
+  'ORD-007':'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=1200&q=80'
+};
+let demoPatched=false;
+orders.forEach(o=>{
+  const img=DEMO_IMAGES_BY_ID[o.id];
+  if(img && (!o.imageUrl || o.imageUrl.startsWith('assets/') || o.imageUrl.startsWith('file:///'))){o.imageUrl=img;demoPatched=true;}
+});
+if(demoPatched)persist();
+
+function migrateOrder(o){
+  return Object.assign({
+    linkedOrderId:'',
+    issueAckAt:'',
+    issueAckNote:'',
+    issueAckIntentionalDuplicate:false,
+    issueAckIsRework:false
+  },o);
+}
+orders=orders.map(migrateOrder);
+
+function persist(){localStorage.setItem('lgb_orders',JSON.stringify(orders));}
+function nextId(){return 'ORD-'+String(orders.length+1).padStart(3,'0');}
+function $$(id){return document.getElementById(id);}
+function fmt$(v){return v?'$'+parseFloat(v).toFixed(2):'—';}
+function fmtD(d){if(!d)return'—';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+function totalCost(o){const t=(parseFloat(o.castTotal)||0)+(parseFloat(o.stoneTotal)||0)+(parseFloat(o.setTotal)||0)+(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0);return t>0?t:null;}
+function dotCls(n){return n?(DOTCLS[n.toLowerCase()]||'do'):'do';}
+function ini(n){return n?n[0].toUpperCase():'?';}
+
+(function wireSearch(){
+  const inp=$$('searchInput');
+  if(inp)inp.addEventListener('input',render);
+})();
+window.addEventListener('message',e=>{
+  if(e.origin!==location.origin)return;
+  if(!e.data||e.data.type!=='lgb-set-search')return;
+  const inp=$$('searchInput');
+  if(inp)inp.value=typeof e.data.q==='string'?e.data.q:'';
+  render();
+});
+function normStyle(s){return String(s||'').trim().toUpperCase();}
+function isActiveStatus(st){return st!=='Completed';}
+function duplicateStyleIssueForOrder(o){
+  if((o.status||'')==='Completed')return false;
+  const sc=normStyle(o.styleCode);
+  if(!sc)return false;
+  const others=orders.filter(x=>x.id!==o.id&&isActiveStatus(x.status)&&normStyle(x.styleCode)===sc);
+  if(!others.length)return false;
+  return!duplicateResolutionOk(o);
+}
+function duplicateResolutionOk(o){
+  if(!o.issueAckAt||!String(o.issueAckNote||'').trim())return false;
+  if(o.issueAckIntentionalDuplicate)return true;
+  if(o.issueAckIsRework&&String(o.linkedOrderId||'').trim()){
+    const p=orders.find(x=>x.id===String(o.linkedOrderId).trim());
+    return!!p;
+  }
+  return false;
+}
+function fieldErrors(o){
+  const e=[],st=o.status||'';
+  if(st==='Completed'){
+    if(!normStyle(o.styleCode))e.push('Missing style code');
+    if(!String(o.productType||'').trim())e.push('Missing product type');
+    return e;
+  }
+  if(!normStyle(o.styleCode))e.push('Missing style code');
+  if(!String(o.productType||'').trim())e.push('Missing product type');
+  if(!String(o.placedBy||'').trim())e.push('Missing placed by');
+  if(['Inquiry','Casting'].includes(st)){
+    if(!String(o.castVendor||'').trim())e.push('Casting: missing vendor');
+    if(!String(o.castInvoice||'').trim())e.push('Casting: missing invoice #');
+    if(!String(o.castDate||'').trim())e.push('Casting: missing cast date');
+    if(!String(o.castTotal||'').trim())e.push('Casting: missing cast total');
+  }
+  if(st==='At Setter'){
+    if(!String(o.setter||'').trim())e.push('Setter: missing setter');
+    if(!String(o.setTotal||'').trim()&&!String(o.setInvoice||'').trim())e.push('Setter: missing set total or invoice #');
+  }
+  if(duplicateStyleIssueForOrder(o))e.push('Duplicate style with another active order — confirm intentional duplicate or link rework');
+  return e;
+}
+function orderHasErrors(o){return fieldErrors(o).length>0;}
+function filtered(){const v=$$('searchInput')?$$('searchInput').value:'';const q=v.toLowerCase();return orders.filter(o=>{if(tab==='Errors'){if(!orderHasErrors(o))return false;}else if(tab!=='All'&&o.status!==tab)return false;const qm=!q||[o.id,o.styleCode,o.productType,o.placedBy,o.castVendor,o.setter].some(f=>f&&f.toLowerCase().includes(q));return qm;});}
+function render(){renderTabs();renderOrders();}
+function renderTabs(){
+  const counts={};
+  STATUSES.forEach(s=>{
+    if(s==='All')counts[s]=orders.length;
+    else if(s==='Errors')counts[s]=orders.filter(orderHasErrors).length;
+    else counts[s]=orders.filter(o=>o.status===s).length;
+  });
+  $$('tabsRow').innerHTML=STATUSES.map(s=>`<button class="tab ${tab===s?'active':''}" onclick="setTab('${s}')">${s} <span class="cnt">${counts[s]}</span></button>`).join('');
+  const f=filtered();const errN=orders.filter(orderHasErrors).length;$$('pageSub').textContent=`${f.length} order${f.length!==1?'s':''} · ${orders.filter(o=>o.status!=='Completed').length} active${errN?` · ${errN} with issues`:''}`;
+}
+function renderOrders(){
+  const list=filtered(),c=$$('container');
+  if(view==='grid'){c.innerHTML=`<div class="cards-grid">${list.length?list.map(cardHTML).join(''):emptyHTML()}</div>`;}
+  else{c.innerHTML=`<div class="list-hd"><div>Order</div><div>Status</div><div>Vendor</div><div>Setter</div><div>Cost</div><div>Date</div></div><div class="orders-list">${list.length?list.map(listHTML).join(''):emptyHTML()}</div>`;}
+}
+function emptyHTML(){return`<div class="empty"><svg viewBox="0 0 100 110" fill="none" stroke="currentColor" stroke-width="3"><polygon points="50,5 92,28 92,72 50,105 8,72 8,28"/><polygon points="50,5 70,28 50,48 30,28"/><line x1="30" y1="28" x2="70" y2="28"/><line x1="50" y1="48" x2="8" y2="72"/><line x1="50" y1="48" x2="92" y2="72"/></svg><p>No orders found</p></div>`;}
+function cardHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'',img=o.imageUrl?`<img class="card-photo" src="${o.imageUrl}" alt="${(o.styleCode||'order image').replace(/"/g,'&quot;')}">`:`<div class="card-placeholder"><img src="assets/card-diamond.png" alt="LabGrownBox logo"><span>${o.productType||'Item'}</span></div>`;return`<div class="order-card${ec}" onclick="openDetail('${o.id}')"><div class="card-img">${img}<span class="badge ${b}">${o.status}</span><button class="card-del" title="Delete order" onclick="event.stopPropagation();deleteOrder('${o.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div><div class="card-body"><span class="card-date">${fmtD(o.createdAt)}</span><div class="card-name">${o.productType||'—'}${o.metal?' · '+o.metal:''}</div><div class="card-code">${o.styleCode} · ${o.id}</div><div class="card-by"><div class="dot ${dc}">${ini(o.placedBy)}</div>${o.placedBy||'Unknown'}</div></div><div class="card-foot"><span class="card-vendor">${o.castVendor||o.setter||'—'}</span><span class="card-cost ${cost?'':'nc'}">${cost?fmt$(cost):'No cost yet'}</span></div></div>`;}
+function listHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'';return`<div class="list-row${ec}" onclick="openDetail('${o.id}')"><div><div class="ln">${o.productType||'—'} · ${o.styleCode}</div><div class="ls">${o.id} · <span style="display:inline-flex;align-items:center;gap:3px"><span class="dot ${dc}" style="width:15px;height:15px;font-size:.58rem">${ini(o.placedBy)}</span>${o.placedBy||'—'}</span></div></div><div><span class="list-badge ${b}">${o.status}</span></div><div class="lc">${o.castVendor||'—'}</div><div class="lc">${o.setter||'—'}</div><div class="lv">${cost?fmt$(cost):'—'}</div><div class="lc">${fmtD(o.createdAt)}</div></div>`;}
+
+function escHtml(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function submitIssueResolution(id){
+  const o=orders.find(x=>x.id===id);if(!o)return;
+  const note=$$('d_ackNote').value.trim();
+  const at=$$('d_ackAt').value;
+  const dup=$$('d_ackDup').checked;
+  const rew=$$('d_ackRew').checked;
+  const link=$$('d_linkedInDetail').value.trim();
+  if(!note||!at){toast('Resolution note and date required','err');return;}
+  if(rew&&!link){toast('Rework requires linked prior order ID','err');return;}
+  if(!dup&&!rew){toast('Check intentional duplicate or rework','err');return;}
+  if(rew){
+    const p=orders.find(x=>x.id===link);
+    if(!p){toast('Linked order ID not found','err');return;}
+  }
+  o.issueAckNote=note;o.issueAckAt=at;o.issueAckIntentionalDuplicate=dup;o.issueAckIsRework=rew;o.linkedOrderId=link;
+  persist();render();openDetail(id);toast('Resolution saved ✓','ok');
+}
+function openDetail(id){
+  const o=orders.find(x=>x.id===id);if(!o)return;
+  editId=id;
+  $$('dTitle').textContent=`${o.productType||'Order'} — ${o.styleCode}`;
+  $$('dSub').textContent=`${o.id} · Placed by ${o.placedBy||'—'} · ${fmtD(o.createdAt)}`;
+  const cost=totalCost(o),si=STEPS.indexOf(o.status),ext=(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0),imgs=orderImages(o);
+  const errs=fieldErrors(o);
+  const issueBox=errs.length?`<div class="dbox issue-panel">
+    <div class="dbox-hd issue-panel-hd">Needs attention · ${errs.length} issue${errs.length!==1?'s':''}</div>
+    <div class="issue-body">
+      <ul class="issue-err-list">${errs.map(x=>`<li>${escHtml(x)}</li>`).join('')}</ul>
+      <div class="issue-fields">
+        <div class="issue-field">
+          <label for="d_ackNote">Resolution note</label>
+          <textarea class="fc" id="d_ackNote" rows="3" placeholder="What you fixed, or why a duplicate style is OK…">${escHtml(o.issueAckNote)}</textarea>
+        </div>
+        <div class="issue-row2">
+          <div class="issue-field">
+            <label for="d_ackAt">Resolution date</label>
+            <input class="fc" type="date" id="d_ackAt" value="${escAttr(o.issueAckAt)}">
+          </div>
+          <div class="issue-field">
+            <label for="d_linkedInDetail">Link prior order (rework)</label>
+            <input class="fc" id="d_linkedInDetail" value="${escAttr(o.linkedOrderId)}" placeholder="e.g. ORD-001">
+          </div>
+        </div>
+        <p class="issue-hint">Rework must reference an existing order ID. Intentional duplicate does not require a link.</p>
+        <div class="issue-checks">
+          <label><input type="checkbox" id="d_ackDup" ${o.issueAckIntentionalDuplicate?'checked':''}><span>Intentional duplicate (same style code is expected)</span></label>
+          <label><input type="checkbox" id="d_ackRew" ${o.issueAckIsRework?'checked':''}><span>This order is a rework of the linked job above</span></label>
+        </div>
+        <button type="button" class="btn btn-p issue-save" onclick="submitIssueResolution('${id}')">Save resolution</button>
+      </div>
+    </div>
+  </div>`:'';
+  $$('dBody').innerHTML=`<div class="dsections">
+    ${issueBox}
+    <div class="dbox"><div class="dbox-hd">Progress</div><div class="stepper">${STEPS.map((s,i)=>`<div class="step ${i<si?'done':i===si?'active':''}"><div class="sdot">${i<si?'✓':i+1}</div><div class="slbl">${s}</div></div>`).join('')}</div></div>
+    <div class="cost-bar">${ci_('Casting',o.castTotal)}${ci_('Stones',o.stoneTotal)}${ci_('Setting',o.setTotal)}${ci_('Extras',ext||null)}<div class="ci"><div class="cil">Total</div><div class="civ">${cost?fmt$(cost):'—'}</div></div></div>
+    <div class="dbox"><div class="dbox-hd">Update Status</div><div class="stbtns">${['Inquiry','Casting','At Setter','Hold','Blocked','Completed'].map(s=>`<button class="stbtn ${o.status===s?'cur':''}" onclick="setStatus('${id}','${s}')">${s}</button>`).join('')}</div></div>
+    <div class="dbox"><div class="dbox-hd">Order Info</div><div class="dgrid">${dc_('Style Code',o.styleCode,'gold')}${dc_('Product',o.productType)}${dc_('Metal',o.metal)}${dc_('Size',o.size)}${dc_('Placed By',o.placedBy)}${dc_('Linked prior',o.linkedOrderId)}${dc_('Created',fmtD(o.createdAt))}</div></div>
+    <div class="dbox"><div class="dbox-hd">Casting</div><div class="dgrid">${dc_('Vendor',o.castVendor)}${dc_('Invoice #',o.castInvoice)}${dc_('Date',fmtD(o.castDate))}${dc_('DWT',o.castDWT)}${dc_('Grams',o.castGrams)}${dc_('Print Fee',fmt$(o.castPrint))}${dc_('Total',fmt$(o.castTotal),'hi')}${dc_('Picked Up By',o.castPickup)}${dc_('Pickup Date',fmtD(o.castPickupDate))}</div></div>
+    <div class="dbox"><div class="dbox-hd">Stones</div><div class="dgrid">${dc_('Shape',o.stoneShape)}${dc_('Color',o.stoneColor)}${dc_('Sieve',o.stoneSieve)}${dc_('MM Size',o.stoneMM)}${dc_('Pcs',o.stonePcs)}${dc_('Carats',o.stoneCt)}${dc_('Price/ct',fmt$(o.stonePrice))}${dc_('Stone Total',fmt$(o.stoneTotal),'hi')}${dc_('Lot #',o.stoneLot)}${dc_('Cert #',o.stoneCert)}</div></div>
+    <div class="dbox"><div class="dbox-hd">Setting</div><div class="dgrid">${dc_('Setter',o.setter)}${dc_('Invoice #',o.setInvoice)}${dc_('Date',fmtD(o.setDate))}${dc_('Setting $',fmt$(o.setPrice))}${dc_('Labor $',fmt$(o.setLabor))}${dc_('Laser $',fmt$(o.setLaser))}${dc_('Job Type',o.setJob)}${dc_('ST #',o.setST)}${dc_('Total',fmt$(o.setTotal),'hi')}</div></div>
+    ${(o.extras||[]).length?`<div class="dbox"><div class="dbox-hd">Extras / Complications</div><div class="dgrid">${o.extras.map(e=>`<div class="dcell" style="grid-column:span 2"><div class="dclabel">Item</div><div class="dcval">${e.desc}</div></div>${dc_('Cost',fmt$(e.cost),'hi')}`).join('')}</div></div>`:''}
+    ${o.notes?`<div class="dbox"><div class="dbox-hd">Notes</div><div style="padding:10px 14px;font-size:.84rem;color:var(--text2);line-height:1.6">${o.notes}</div></div>`:''}
+    ${imgs.length?`<div class="qv-wrap"><div class="qv-hd">Quick View Images</div><div class="qv-grid">${imgs.map((u,i)=>`<button class="qv-item" type="button" onclick="openImage('${encodeURIComponent(u)}')"><img src="${u}" alt="Order image ${i+1}"><div class="qv-cap">Image ${i+1}</div></button>`).join('')}</div></div>`:''}
+    <div style="display:flex;gap:8px;justify-content:space-between;padding-top:4px">
+      <button class="btn btn-r" onclick="deleteOrder('${id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete</button>
+      <button class="btn btn-p" onclick="editCurrent()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit Order</button>
+    </div>
+  </div>`;
+  openOverlay('detailOverlay');
+}
+function ci_(l,v){return`<div class="ci"><div class="cil">${l}</div><div class="civ">${v?fmt$(v):'—'}</div></div>`;}
+function dc_(l,v,c=''){return`<div class="dcell"><div class="dclabel">${l}</div><div class="dcval ${c}">${v||'—'}</div></div>`;}
+function orderImages(o){
+  const arr=[];
+  if(o.imageUrl)arr.push(o.imageUrl);
+  if(Array.isArray(o.imageUrls))arr.push(...o.imageUrls);
+  if(Array.isArray(o.images))arr.push(...o.images.map(x=>typeof x==='string'?x:(x&& (x.url||x.src))||''));
+  return [...new Set(arr.filter(Boolean))];
+}
+function openImage(encoded){window.open(decodeURIComponent(encoded),'_blank');}
+function setStatus(id,s){const o=orders.find(x=>x.id===id);if(!o)return;o.status=s;persist();openDetail(id);render();toast(`Status → ${s}`,'ok');}
+function deleteOrder(id){if(!confirm('Delete this order?'))return;orders=orders.filter(o=>o.id!==id);persist();closeOverlay('detailOverlay');render();toast('Order deleted','err');}
+
+function openNewOrder(){editId=null;clearForm();$$('newTitle').textContent='New Order';openOverlay('newOrderOverlay');}
+function editCurrent(){const o=orders.find(x=>x.id===editId);if(!o)return;closeOverlay('detailOverlay');clearForm();fillForm(o);$$('newTitle').textContent='Edit — '+o.id;openOverlay('newOrderOverlay');}
+function clearForm(){FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});$$('xList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';}
+function fillForm(o){clearForm();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el&&o[k])el.value=o[k];});(o.extras||[]).forEach(e=>addExtra(e.desc,e.cost));}
+function saveOrder(){
+  const hasMultiLines=scanType==='casting' && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1;
+  const sc=$$('f_styleCode').value.trim();
+  if(!sc && !hasMultiLines){toast('Style code required','err');return;}
+  const extras=Array.from(document.querySelectorAll('.xrow')).map(r=>({desc:r.querySelector('.xd').value,cost:r.querySelector('.xc').value})).filter(e=>e.desc);
+  const data={extras};FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)data[k]=el.value;});
+  if(pendingScanImageDataUrl)data.imageUrl=pendingScanImageDataUrl;
+  try{
+    if(editId){const i=orders.findIndex(o=>o.id===editId);orders[i]=migrateOrder({...orders[i],...data});toast('Updated ✓','ok');}
+    else if(scanType==='casting' && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1){
+      const created=buildOrdersFromLineItems(data,pendingExtraction.line_items);
+      created.forEach(o=>{orders.push(migrateOrder(o));});
+      toast(`Saved ${created.length} orders from invoice lines ✓`,'ok');
+    }else{
+      const o=migrateOrder({id:nextId(),createdAt:new Date().toISOString().slice(0,10),...data});orders.push(o);toast('Saved ✓','ok');
+    }
+    persist();
+  }catch(err){
+    if(err&&err.name==='QuotaExceededError'){toast('Photo too large for browser storage — try a smaller image','err');return;}
+    throw err;
+  }
+  pendingScanImageDataUrl=null;pendingExtraction=null;updateScanPreview();
+  closeOverlay('newOrderOverlay');render();
+}
+
+function buildOrdersFromLineItems(baseData,lineItems){
+  const out=[];
+  let seq=orders.length+1;
+  lineItems.forEach(li=>{
+    if(!li||!li.description)return;
+    const m=String(li.description).match(/\b([A-Z]{2,5}-?\d{1,4}[A-Z]?)\b/);
+    const styleCode=m?m[1]:baseData.styleCode;
+    if(!styleCode)return;
+    const metal=(String(li.description).match(/\b(Platinum|14K|18K|10K|Silver)\b/i)||[])[1]||baseData.metal||'';
+    const productType=guessProductType(li.description)||baseData.productType||'Ring';
+    const castTotal=li.amount!=null?String(li.amount):baseData.castTotal||'';
+    out.push(migrateOrder({
+      id:'ORD-'+String(seq++).padStart(3,'0'),
+      createdAt:new Date().toISOString().slice(0,10),
+      ...baseData,
+      styleCode,
+      productType,
+      metal,
+      castTotal,
+      notes:(baseData.notes?baseData.notes+' | ':'')+'Auto-created from scanned invoice line'
+    }));
+  });
+  return out;
+}
+
+function guessProductType(s){
+  const x=String(s||'').toLowerCase();
+  if(/\b(br|bracelet)\b/.test(x))return'Bracelet';
+  if(/\b(earring|sfe|er)\b/.test(x))return'Earring';
+  if(/\b(pendant|pn)\b/.test(x))return'Pendant';
+  if(/\b(necklace|nk)\b/.test(x))return'Necklace';
+  return'Ring';
+}
+
+function addExtra(d='',c=''){const r=document.createElement('div');r.className='xrow';r.innerHTML=`<input class="fc xd" placeholder="Item (tongue, lock…)" value="${d}"><input class="fc xc" placeholder="$" value="${c}"><button class="btn-rm" onclick="this.parentElement.remove()">✕</button>`;$$('xList').appendChild(r);}
+
+function setScan(btn,t){document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');scanType=t;}
+async function handleFile(e){
+  const files=Array.from((e.target&&e.target.files)||[]);
+  if(!files.length)return;
+  $$('aiprog').classList.add('show');$$('airesult').classList.remove('show');
+  try{
+    const imgs=[];
+    for(const f of files){
+      const prep=await prepareImageForScan(f);
+      if(!pendingScanImageDataUrl)pendingScanImageDataUrl=prep.dataUrl;
+      imgs.push({imageData:prep.b64,mimeType:prep.mimeType});
+    }
+    updateScanPreview();
+    const res=await fetch('/api/extraction/preview',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({scanType,images:imgs})
+    });
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'OCR preview failed');
+    if(data.success&&data.extracted)applyExt(data.extracted);
+    else toast(data.error||'AI scan failed','err');
+  }catch(err){
+    toast(err.message||'OCR preview failed','err');
+  }finally{
+    $$('aiprog').classList.remove('show');const fi=$$('fInput');if(fi)fi.value='';
+  }
+}
+function updateScanPreview(){
+  const box=$$('scanPreview');if(!box)return;
+  box.innerHTML='';
+  if(!pendingScanImageDataUrl){box.style.display='none';return;}
+  box.style.display='block';
+  const lbl=document.createElement('div');
+  lbl.style.cssText='font-size:.72rem;color:var(--text3);margin-bottom:6px';
+  lbl.textContent='Document preview (saved with order)';
+  const img=document.createElement('img');
+  img.src=pendingScanImageDataUrl;
+  img.alt='Scan preview';
+  img.style.cssText='max-height:140px;max-width:100%;border-radius:var(--radius-sm);border:1px solid var(--border);object-fit:contain';
+  box.appendChild(lbl);box.appendChild(img);
+}
+function compressImageForScan(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      try{
+        let w=img.naturalWidth,h=img.naturalHeight;
+        const maxW=1600;
+        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+        const c=document.createElement('canvas');
+        c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        const dataUrl=c.toDataURL('image/jpeg',0.82);
+        const b64=dataUrl.split(',')[1];
+        if(!b64||b64.length<80)reject(new Error('empty image'));
+        else resolve({dataUrl,b64,mimeType:'image/jpeg'});
+      }catch(err){reject(err);}
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('decode'));};
+    img.src=url;
+  });
+}
+async function prepareImageForScan(file){
+  try{return await compressImageForScan(file);}catch(_){
+    const b64=await toB64(file);
+    const mt=file.type&&file.type.startsWith('image/')?file.type:'image/jpeg';
+    const dataUrl='data:'+mt+';base64,'+b64;
+    if(!b64||b64.length<50)throw new Error('Could not read image file.');
+    return{dataUrl,b64,mimeType:mt};
+  }
+}
+async function scanDoc(file){
+  $$('aiprog').classList.add('show');$$('airesult').classList.remove('show');
+  try{
+    const prep=await prepareImageForScan(file);
+    pendingScanImageDataUrl=prep.dataUrl;
+    updateScanPreview();
+    const res=await fetch('/api/extraction/preview',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        scanType,
+        imageData:prep.b64,
+        mimeType:prep.mimeType
+      })
+    });
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'OCR preview failed');
+    if(data.success&&data.extracted)applyExt(data.extracted);
+    else toast(data.error||'AI scan failed','err');
+  }
+  catch(e){
+    toast(e.message||'OCR preview failed','err');
+  }
+  finally{$$('aiprog').classList.remove('show');const fi=$$('fInput');if(fi)fi.value='';}
+}
+function applyExt(ext){pendingExtraction=ext;const map={castInvoice:'f_castInvoice',castDate:'f_castDate',castVendor:'f_castVendor',castDWT:'f_castDWT',castGrams:'f_castGrams',castPrint:'f_castPrint',castTotal:'f_castTotal',castPickup:'f_castPickup',castPickupDate:'f_castPickupDate',setInvoice:'f_setInvoice',setDate:'f_setDate',setter:'f_setter',setJob:'f_setJob',setST:'f_setST',setPrice:'f_setPrice',setLabor:'f_setLabor',setLaser:'f_setLaser',setTotal:'f_setTotal',stoneLot:'f_stoneLot',stonePcs:'f_stonePcs',stoneCt:'f_stoneCt',stonePrice:'f_stonePrice',stoneTotal:'f_stoneTotal',stoneMM:'f_stoneMM',stoneShape:'f_stoneShape',stoneColor:'f_stoneColor',stoneSieve:'f_stoneSieve',stoneCert:'f_stoneCert',styleCode:'f_styleCode',productType:'f_productType',metal:'f_metal',size:'f_size',placedBy:'f_placedBy',status:'f_status',linkedOrderId:'f_linkedOrderId',notes:'f_notes'};let n=0;function skipVal(v){if(v===null||v===undefined)return true;if(typeof v==='string'&&!v.trim())return true;return false;}Object.entries(ext).forEach(([k,v])=>{if(k==='line_items'||skipVal(v))return;const id=map[k];if(id){const el=$$(id);if(el&&!el.value){el.value=String(v);n++;}}});const lines=Array.isArray(ext.line_items)?ext.line_items:[];if(lines.length){const first=lines[0]||{};const d=String(first.description||'');const style=(d.match(/\b([A-Z]{2,5}-?\d{1,4}[A-Z]?)\b/)||[])[1]||'';const metal=(d.match(/\b(Platinum|14K(?:\s+\w+)?|18K(?:\s+\w+)?|10K(?:\s+\w+)?|Silver)\b/i)||[])[1]||'';const ptype=guessProductType(d);if(style&&$$('f_styleCode')&&!$$('f_styleCode').value){$$('f_styleCode').value=style;n++;}if(metal&&$$('f_metal')&&!$$('f_metal').value){$$('f_metal').value=metal;n++;}if(ptype&&$$('f_productType')&&!$$('f_productType').value){$$('f_productType').value=ptype;n++;}if(first.amount!=null&&$$('f_castTotal')&&!$$('f_castTotal').value){$$('f_castTotal').value=String(first.amount);n++;}}const linesHtml=lines.length?`<div class="aihd" style="margin-top:8px">Invoice lines detected: ${lines.length} (Save will create ${lines.length} cards)</div>${lines.map((li,i)=>`<div class="airow"><span class="aik">line ${i+1}</span><span class="aiv">${(li.description||'').slice(0,52)}${li.amount!=null?` · $${Number(li.amount).toFixed(2)}`:''}</span></div>`).join('')}`:'';$$('airesult').innerHTML=`<div class="aihd">✓ AI filled ${n} fields</div>${Object.entries(ext).filter(([k,v])=>k!=='line_items'&&!skipVal(v)).map(([k,v])=>`<div class="airow"><span class="aik">${k}</span><span class="aiv">${v}</span></div>`).join('')}${linesHtml}`;$$('airesult').classList.add('show');toast(`AI filled ${n} fields`,'ok');}
+function toB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+function downloadExcel(){
+  const hdrs=['Order ID','Style Code','Product','Metal','Size','Status','Placed By','Created','Cast Vendor','Cast Invoice','Cast Date','Cast DWT','Cast Grams','Print Fee','Cast Total','Stone Shape','Stone Color','Stone Pcs','Stone Ct','Price/Ct','Stone Total','Setter','Set Invoice','Set Date','Set Price','Labor','Set Total','Extras','Extras Total','Notes','Grand Total'];
+  const rows=orders.map(o=>{const cost=totalCost(o);const et=(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0);const ed=(o.extras||[]).map(e=>e.desc).join(' | ');return[o.id,o.styleCode,o.productType,o.metal,o.size,o.status,o.placedBy,o.createdAt,o.castVendor,o.castInvoice,o.castDate,o.castDWT,o.castGrams,o.castPrint,o.castTotal,o.stoneShape,o.stoneColor,o.stonePcs,o.stoneCt,o.stonePrice,o.stoneTotal,o.setter,o.setInvoice,o.setDate,o.setPrice,o.setLabor,o.setTotal,ed,et||'',o.notes,cost?cost.toFixed(2):''].map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"');});
+  const csv=[hdrs.map(h=>`"${h}"`).join(','),...rows.map(r=>r.join(','))].join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='LabGrownBox_Orders_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast('Downloaded! Open in Excel or Sheets ✓','ok');
+}
+
+function setTab(t){tab=t;render();}
+function setView(v){view=v;$$('gridBtn').classList.toggle('active',v==='grid');$$('listBtn').classList.toggle('active',v==='list');render();}
+function openOverlay(id){$$(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeOverlay(id){$$(id).classList.remove('open');document.body.style.overflow='';}
+function bgClose(e,id){if(e.target.id===id)closeOverlay(id);}
+function toast(msg,type='info'){const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${type==='ok'?'✓':type==='err'?'✕':'ℹ'}</span> ${msg}`;$$('toasts').appendChild(el);setTimeout(()=>el.remove(),3200);}
+render();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
