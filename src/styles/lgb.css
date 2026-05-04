@@ -1,14 +1,12 @@
-/* LabGrownBox shell UI — scoped under .lgb-shell (Next.js app + embedded orders workspace) */
-
 .lgb-shell {
   --cream: #fdf6ec;
   --cream2: #f5edd8;
   --cream3: #ede0c8;
   --peacock: #0d2b6e;
-  --peacock2: #0a235a;
-  --peacock3: #1c4ea0;
-  --peacock-lt: #e0f0f0;
-  --peacock-xl: #f0f8f8;
+  --peacock2: #123472;
+  --peacock3: #2a63c6;
+  --peacock-lt: #e7eefb;
+  --peacock-xl: #f3f7ff;
   --gold: #b8963e;
   --gold2: #d4af5a;
   --danger: #c0392b;
@@ -18,9 +16,9 @@
   --text3: #9a8f7a;
   --border: #ddd5c4;
   --border2: #cec4b0;
-  --shadow: 0 2px 8px rgba(13, 43, 110, 0.08), 0 1px 3px rgba(13, 43, 110, 0.06);
-  --shadow-md: 0 4px 20px rgba(13, 43, 110, 0.14), 0 2px 6px rgba(13, 43, 110, 0.08);
-  --shadow-lg: 0 8px 40px rgba(13, 43, 110, 0.18), 0 4px 12px rgba(13, 43, 110, 0.1);
+  --shadow: 0 2px 8px rgba(23, 64, 139, 0.08), 0 1px 3px rgba(23, 64, 139, 0.06);
+  --shadow-md: 0 4px 20px rgba(23, 64, 139, 0.14), 0 2px 6px rgba(23, 64, 139, 0.08);
+  --shadow-lg: 0 8px 40px rgba(23, 64, 139, 0.18), 0 4px 12px rgba(23, 64, 139, 0.1);
   --radius: 14px;
   --radius-sm: 8px;
   --serif: var(--font-lgb-serif), "Cormorant Garamond", Georgia, serif;
@@ -98,7 +96,7 @@
 .lgb-shell .nav-logo-tag {
   font-size: 0.52rem;
   letter-spacing: 0.2em;
-  color: rgba(253, 246, 236, 0.5);
+  color: var(--cream);
   text-transform: uppercase;
   margin-top: 2px;
 }
@@ -224,7 +222,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--gold);
+  background: var(--cream2);
   color: var(--peacock2);
   font-weight: 600;
   font-size: 0.8rem;
@@ -236,9 +234,9 @@
   text-decoration: none;
 }
 .lgb-shell .btn-new-nav:hover {
-  background: var(--gold2);
+  background: var(--cream);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(184, 150, 62, 0.4);
+  box-shadow: 0 4px 12px rgba(13, 43, 110, 0.18);
 }
 
 .lgb-shell .main {
@@ -249,6 +247,52 @@
   z-index: 1;
   width: 100%;
   box-sizing: border-box;
+}
+
+.lgb-shell .lgb-footer {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto 18px;
+  max-width: 1320px;
+  padding: 0 22px;
+  color: var(--text2);
+  font-size: 0.78rem;
+}
+.lgb-shell .lgb-footer p {
+  margin: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.lgb-shell .lgb-footer a {
+  color: var(--peacock2);
+  text-decoration: none;
+}
+.lgb-shell .lgb-footer a:hover {
+  text-decoration: underline;
+}
+
+.lgb-shell .lgb-status-page {
+  background: var(--cream2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  max-width: 720px;
+}
+.lgb-shell .lgb-status-page h1 {
+  margin: 0;
+  font-family: var(--serif);
+  color: var(--peacock2);
+  font-size: 1.7rem;
+}
+.lgb-shell .lgb-status-page p {
+  margin: 8px 0 0;
+  color: var(--text2);
+}
+.lgb-shell .lgb-status-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .lgb-shell .page-hd {
   display: flex;
@@ -1147,12 +1191,251 @@
   border-radius: 99px;
 }
 
+/* ───────────────────────── Dashboard layout ────────────────────────── */
+.lgb-shell .dash-series-toggle {
+  display: inline-flex;
+  background: var(--cream2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.lgb-shell .dash-toggle {
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text2);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.lgb-shell .dash-toggle.is-active {
+  background: var(--peacock);
+  color: var(--cream);
+}
+
+.lgb-shell .dash-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.lgb-shell .dash-kpi {
+  background: var(--cream);
+  border: 1.5px solid var(--gold);
+  border-radius: 14px;
+  padding: 26px 28px;
+  position: relative;
+  overflow: hidden;
+}
+.lgb-shell .dash-kpi::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--gold);
+  border-radius: 11px;
+  opacity: 0.25;
+  pointer-events: none;
+}
+.lgb-shell .dash-kpi-label {
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--peacock2);
+}
+.lgb-shell .dash-kpi-value {
+  font-family: var(--serif);
+  font-size: 2.4rem;
+  font-weight: 600;
+  color: var(--peacock);
+  margin-top: 8px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.lgb-shell .dash-kpi-sub {
+  font-size: 0.72rem;
+  color: var(--text3);
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+}
+
+.lgb-shell .dash-chart-card {
+  background: var(--cream);
+  border: 1.5px solid var(--gold);
+  border-radius: 14px;
+  padding: 22px 24px 14px;
+  position: relative;
+}
+.lgb-shell .dash-chart-card::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--gold);
+  border-radius: 11px;
+  opacity: 0.22;
+  pointer-events: none;
+}
+.lgb-shell .dash-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
+}
+.lgb-shell .dash-chart-head h2 {
+  font-family: var(--serif);
+  font-size: 1.22rem;
+  font-weight: 600;
+  color: var(--peacock2);
+  margin: 0;
+}
+.lgb-shell .dash-chart-sub {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.lgb-shell .dash-chart-body {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.lgb-shell .dash-row-head {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 4px;
+  margin-top: 6px;
+}
+.lgb-shell .dash-vendor-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+.lgb-shell .dash-vendor {
+  background: var(--cream);
+  border: 1.5px solid var(--gold);
+  border-radius: 12px;
+  padding: 16px 18px;
+  text-align: center;
+  position: relative;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.lgb-shell .dash-vendor:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(13, 43, 110, 0.12);
+}
+.lgb-shell .dash-vendor-name {
+  font-family: var(--serif);
+  font-size: 1.18rem;
+  font-weight: 600;
+  color: var(--peacock2);
+  letter-spacing: 0.02em;
+}
+.lgb-shell .dash-vendor-count {
+  font-size: 0.78rem;
+  color: var(--text2);
+  font-weight: 600;
+  margin-top: 4px;
+}
+.lgb-shell .dash-vendor-count span {
+  color: var(--text3);
+  font-weight: 400;
+}
+.lgb-shell .dash-vendor-total {
+  font-family: var(--serif);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gold);
+  margin-top: 4px;
+}
+
+.lgb-shell .dash-product-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+.lgb-shell .dash-product {
+  background: transparent;
+  text-align: center;
+  padding: 8px 12px 4px;
+}
+.lgb-shell .dash-product-count {
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--peacock);
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.lgb-shell .dash-product-name {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--text2);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
+.lgb-shell .dash-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 22px;
+  color: var(--text3);
+  font-style: italic;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+.lgb-shell .dash-empty-card {
+  background: var(--cream);
+  border: 1.5px dashed var(--border2);
+  border-radius: 14px;
+  padding: 40px 32px;
+  text-align: center;
+}
+.lgb-shell .dash-empty-card h2 {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--peacock2);
+  margin: 0 0 8px;
+}
+.lgb-shell .dash-empty-card p {
+  color: var(--text3);
+  font-size: 0.92rem;
+  max-width: 42ch;
+  margin: 0 auto;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .lgb-shell .dash-kpi { padding: 18px 20px; }
+  .lgb-shell .dash-kpi-value { font-size: 1.85rem; }
+  .lgb-shell .dash-chart-card { padding: 16px 16px 10px; }
+  .lgb-shell .dash-chart-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .lgb-shell .dash-product-count { font-size: 1.65rem; }
+}
+
 @media (max-width: 640px) {
   .lgb-shell .nav {
     padding: 10px 12px;
   }
   .lgb-shell .nav-logo-tag {
-    display: none;
+    display: block;
+    font-size: 0.48rem;
+    letter-spacing: 0.13em;
+    margin-top: 1px;
+    line-height: 1.1;
+    opacity: 0.96;
   }
   .lgb-shell .nav-logo-name {
     font-size: clamp(0.88rem, 4vw, 1.22rem);
