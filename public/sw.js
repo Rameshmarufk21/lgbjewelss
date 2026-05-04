@@ -1,4 +1,3 @@
-/* Minimal service worker — cache shell; app updates when you redeploy and refresh. */
 const CACHE = "jewelry-ops-v1";
 
 self.addEventListener("install", (event) => {
