@@ -62,6 +62,29 @@ export function absoluteUploadPath(storedPath: string): string {
   return path.join(UPLOADS_DIR, ...storedPath.split("/"));
 }
 
+/** True when uploads are sent to Vercel Blob (no local ./uploads writes). */
+export function isBlobStorageEnabled(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+}
+
+/**
+ * Resolves a URL-relative path under ./uploads and rejects traversal / prefix tricks
+ * (e.g. paths that would match a sibling folder like "uploads_extra/...").
+ */
+export function resolveSafeUploadAbsolutePath(relFromUrl: string): string {
+  const rel = relFromUrl.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!rel || rel.includes("..")) {
+    throw new Error("Invalid path");
+  }
+  const abs = path.resolve(absoluteUploadPath(rel));
+  const root = path.resolve(UPLOADS_DIR);
+  const relToRoot = path.relative(root, abs);
+  if (relToRoot.startsWith("..") || path.isAbsolute(relToRoot)) {
+    throw new Error("Invalid path");
+  }
+  return abs;
+}
+
 /** Load file bytes for OCR / processing (Vercel Blob URL or local uploads/). */
 export async function loadAssetBuffer(asset: {
   storedPath: string;
@@ -74,5 +97,5 @@ export async function loadAssetBuffer(asset: {
     }
     return Buffer.from(await res.arrayBuffer());
   }
-  return readFile(absoluteUploadPath(asset.storedPath));
+  return readFile(resolveSafeUploadAbsolutePath(asset.storedPath));
 }

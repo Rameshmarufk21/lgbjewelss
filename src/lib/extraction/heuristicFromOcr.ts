@@ -184,15 +184,106 @@ function chooseProductRefForStyle(
   );
 }
 
-function extractInvoiceLineItems(text: string): Array<{ description: string; amount: number | null }> {
-  const out: Array<{ description: string; amount: number | null }> = [];
+export type ParsedLineItem = {
+  description: string;
+  amount: number | null;
+  styleCode?: string | null;
+  metal?: string | null;
+  karat?: string | null;
+  qty?: number | null;
+  dwt?: number | null;
+  grams?: number | null;
+  printFee?: number | null;
+  lineTotal?: number | null;
+};
+
+/**
+ * True for the header/labels row in an MTA-style table — "Metal", "MarketPrice",
+ * "Gold: 3558.70" totals row, etc. These MUST NOT become invoice lines.
+ */
+function looksLikeHeaderOrTotalsLine(line: string): boolean {
+  return /\b(description|wt\.?\s*\(|dwt\s*\/|print\s*fee|market\s*price|metal\s*discount|platinum\s*discount|gold\s*discount|applied\s*credit|sub\s*total|subtotal|total\s*due|balance\s*due|grand\s*total|please\s*note|thank\s*you|sales\s*tax|invoice\s*date)\b/i.test(
+    line,
+  );
+}
+
+/**
+ * Pattern match for MTA Casting Hub rows. The columns are:
+ *   [Gold|Platinum] [STYLE CODE] [detail…] [QTY] [DWT/DWT_PRICE] [GRAMS/GRAMS_PRICE] [PRINT_FEE] [$TOTAL]
+ * Example: "Gold BR-09 Yellow 14K 4 15.86/160.15 24.58/103.32 70 $2,609.61"
+ *
+ * We first find the two `num/num` slash-price patterns in the row (that's the DWT/grams
+ * block), then pull qty (last int before them) and printFee (int after them, before $total).
+ */
+function parseMtaCastingRow(line: string): ParsedLineItem | null {
+  if (!/^(Gold|Platinum)\b/i.test(line)) return null;
+  if (looksLikeHeaderOrTotalsLine(line)) return null;
+
+  const slashPairs = [...line.matchAll(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/g)];
+  if (slashPairs.length < 2) return null;
+
+  const style = line.match(/\b([A-Z]{2,6}-?\d{1,4}[A-Z]?)\b/)?.[1] ?? null;
+
+  const dwt = Number(slashPairs[0]?.[1]);
+  const grams = Number(slashPairs[1]?.[1]);
+
+  const secondSlashEnd = (slashPairs[1]?.index ?? 0) + (slashPairs[1]?.[0]?.length ?? 0);
+  const tail = line.slice(secondSlashEnd);
+  // Total: last number on the row, may include $ and thousands separator.
+  const totalMatch = tail.match(/\$?\s*([\d,]+(?:\.\d{1,2})?)\s*$/);
+  const lineTotal = totalMatch ? Number(totalMatch[1].replace(/,/g, "")) : null;
+  // Print fee: integer or decimal sitting between the second slash-pair and the $ total.
+  const printBetween = tail.replace(/\$?\s*[\d,]+(?:\.\d{1,2})?\s*$/, "");
+  const printMatch = printBetween.match(/(\d+(?:\.\d+)?)/);
+  const printFee = printMatch ? Number(printMatch[1]) : null;
+
+  // Qty: the integer immediately before the first slash-pair (usually single digit).
+  const beforeFirstPair = line.slice(0, slashPairs[0]?.index ?? 0);
+  const qtyMatch = beforeFirstPair.match(/(?:^|\s)(\d{1,3})(?=\s*$|\s+\S*\d+\s*\/)/) ?? beforeFirstPair.match(/(\d{1,3})\s*$/);
+  const qty = qtyMatch ? Number(qtyMatch[1]) : null;
+
+  const karatMatch = line.match(/\b(10K|14K|18K|22K|24K|Platinum|Standard)\b/i)?.[1] ?? null;
+  const colorMatch = line.match(/\b(Yellow|White|Rose|Pink|Green)\b/i)?.[1] ?? null;
+  const karatComposed = karatMatch
+    ? colorMatch && /K$/i.test(karatMatch)
+      ? `${karatMatch} ${colorMatch}`
+      : karatMatch
+    : null;
+
+  const metal = /^Platinum/i.test(line) ? "Platinum" : /^Gold/i.test(line) ? "Gold" : null;
+
+  return {
+    description: cleanLineDescription(line).slice(0, 160),
+    amount: Number.isFinite(lineTotal ?? NaN) ? lineTotal : null,
+    styleCode: style,
+    metal,
+    karat: karatComposed,
+    qty: Number.isFinite(qty ?? NaN) ? qty : null,
+    dwt: Number.isFinite(dwt) ? dwt : null,
+    grams: Number.isFinite(grams) ? grams : null,
+    printFee: Number.isFinite(printFee ?? NaN) ? printFee : null,
+    lineTotal: Number.isFinite(lineTotal ?? NaN) ? lineTotal : null,
+  };
+}
+
+function extractInvoiceLineItems(text: string): ParsedLineItem[] {
+  const out: ParsedLineItem[] = [];
   const lines = text
     .split("\n")
     .map((x) => x.replace(/\s+/g, " ").trim())
     .filter(Boolean);
 
   for (const line of lines) {
-    // Typical style code in your invoices: BR-09, SFE20, SFR-44, etc.
+    if (looksLikeHeaderOrTotalsLine(line)) continue;
+
+    // First: try the strict MTA-casting row parser (gives us per-row weights + fees).
+    const mta = parseMtaCastingRow(line);
+    if (mta && mta.styleCode) {
+      out.push(mta);
+      continue;
+    }
+
+    // Generic fallback: any row with a style code in it.
     const style = line.match(/\b([A-Z]{2,5}-?\d{1,4}[A-Z]?)\b/);
     if (!style) continue;
     if (/invoice|subtotal|total due|discount|credit|market price|description/i.test(line)) continue;
@@ -206,6 +297,7 @@ function extractInvoiceLineItems(text: string): Array<{ description: string; amo
     out.push({
       description: cleanLineDescription(line).slice(0, 140),
       amount: Number.isFinite(amount ?? NaN) ? amount : null,
+      styleCode: style[1] ?? null,
     });
   }
 
@@ -226,6 +318,7 @@ function extractInvoiceLineItems(text: string): Array<{ description: string; amo
     if (exists) continue;
 
     const hostLine = lines.find((ln) => new RegExp(`\\b${escapeRegex(styleCode)}\\b`, "i").test(ln)) ?? styleCode;
+    if (looksLikeHeaderOrTotalsLine(hostLine)) continue;
     const nums = [...hostLine.matchAll(/(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})|\d+\.\d{1,2})/g)].map((m) =>
       Number(m[1].replace(/,/g, "")),
     );
@@ -233,6 +326,7 @@ function extractInvoiceLineItems(text: string): Array<{ description: string; amo
     deduped.push({
       description: cleanLineDescription(hostLine),
       amount: Number.isFinite(amount ?? NaN) ? amount : null,
+      styleCode,
     });
   }
 

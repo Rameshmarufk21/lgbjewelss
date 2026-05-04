@@ -104,6 +104,14 @@ export const extractedInvoiceSchema = z.object({
       z.object({
         description: z.string(),
         amount: z.number().nullable(),
+        styleCode: z.string().nullable().optional(),
+        metal: z.string().nullable().optional(),
+        karat: z.string().nullable().optional(),
+        qty: z.number().nullable().optional(),
+        dwt: z.number().nullable().optional(),
+        grams: z.number().nullable().optional(),
+        printFee: z.number().nullable().optional(),
+        lineTotal: z.number().nullable().optional(),
       }),
     )
     .optional(),
