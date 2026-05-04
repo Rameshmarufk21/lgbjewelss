@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+/** Node avoids Vercel Hobby 1 MB Edge bundle limit on `/icon` (ImageResponse on Edge was ~1.06 MB). */
+export const runtime = "nodejs";
 export const size = { width: 512, height: 512 };
 export const contentType = "image/png";
 
