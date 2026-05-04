@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LABGROWNBOX · Memo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Print page setup — Letter portrait, no browser margins so the gold frame
+     reaches the paper edge. The browser print dialog still lets the user pick
+     "Save as PDF" as a destination on every platform. */
+  @page { size: Letter portrait; margin: 0; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  :root{
+    --cream:#FDF6EC;--cream2:#F5EDD8;
+    --peacock:#0d2b6e;--peacock2:#0a235a;
+    --gold:#B8963E;--gold2:#D4AF5A;
+    --text:#1C1A16;--text2:#4A4438;--text3:#9A8F7A;
+  }
+  body{font-family:'Cormorant Garamond','EB Garamond','Times New Roman',Georgia,serif;background:var(--cream);color:var(--text);min-height:100vh}
+
+  /* Toolbar — sticky, hidden when printing or saving as PDF */
+  .toolbar{position:sticky;top:0;z-index:50;background:rgba(253,246,236,.92);backdrop-filter:saturate(140%) blur(6px);-webkit-backdrop-filter:saturate(140%) blur(6px);border-bottom:1px solid rgba(184,150,62,.4);display:flex;align-items:center;gap:10px;padding:10px 20px}
+  .toolbar .spacer{flex:1}
+  .toolbar h1{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--peacock);margin:0;display:flex;align-items:center;gap:10px}
+  /* Toolbar wordmark — same provided brand asset as sheet header. */
+  .toolbar h1 .tb-logo{height:22px;flex-shrink:0;display:inline-flex;align-items:center}
+  .toolbar h1 .tb-logo .brand-mark{
+    width:22px;height:22px;display:block;background:var(--peacock);
+    -webkit-mask-image:url('assets/diamond-icon.png');mask-image:url('assets/diamond-icon.png');
+    -webkit-mask-size:contain;mask-size:contain;
+    -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+    -webkit-mask-position:center;mask-position:center;
+  }
+  .toolbar .doc{font-family:'DM Sans',sans-serif;font-size:.72rem;color:var(--text2);letter-spacing:.06em;margin-left:8px}
+  .tb-btn{font-family:'DM Sans',sans-serif;font-size:.78rem;letter-spacing:.06em;padding:8px 14px;border:1px solid var(--peacock);background:var(--peacock);color:#fff;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;line-height:1}
+  .tb-btn:hover{filter:brightness(1.07)}
+  .tb-btn.ghost{background:transparent;color:var(--peacock)}
+  .tb-btn svg{width:13px;height:13px}
+  .tb-hint{font-family:'DM Sans',sans-serif;font-size:.7rem;color:var(--text3)}
+
+  /* Stage holds the sheet — light bg outside the paper while editing */
+  .stage{padding:22px 14px}
+
+  /* The printable sheet itself */
+  .sheet{width:8.5in;min-height:11in;margin:0 auto;background:var(--cream);padding:.55in .55in .45in;position:relative;box-shadow:0 18px 40px rgba(15,50,40,.18)}
+  .sheet::before{content:'';position:absolute;inset:.32in;border:1px solid var(--gold);pointer-events:none}
+  .sheet::after{content:'';position:absolute;inset:.36in;border:1px solid var(--gold);opacity:.35;pointer-events:none}
+
+  .watermark{position:absolute;inset:0;pointer-events:none;overflow:hidden;display:flex;flex-direction:column}
+  .watermark .wm-half{flex:1;display:flex;align-items:center;justify-content:center}
+  .watermark .wm-mark{width:360px;height:360px;background:url('assets/watermark-logo.png') center/contain no-repeat;opacity:.07}
+
+  /* Both halves are intentionally identical. This keeps signature/date
+     placement consistent while still leaving safe space above the bottom
+     border on Letter paper. */
+  .half{position:relative;z-index:1;height:4.7in;display:flex;flex-direction:column}
+  .half + .half{margin-top:18px}
+
+  /* Header now uses one provided wordmark image (transparent background). */
+  .head{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;padding:6px 0 14px;border-bottom:1px solid var(--gold)}
+  /* Brand wordmark color is driven by UI variable (--peacock) via mask. */
+  .word{display:flex;align-items:center;justify-content:flex-start;gap:10px;color:var(--peacock);line-height:0}
+  .word .brand-mark{
+    width:360px;height:56px;max-width:62vw;display:block;background:currentColor;
+    -webkit-mask-image:url('assets/wordmark.png');mask-image:url('assets/wordmark.png');
+    -webkit-mask-size:contain;mask-size:contain;
+    -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+    -webkit-mask-position:left center;mask-position:left center;
+  }
+  .word .brand-mark:first-child{
+    width:28px;height:28px;max-width:none;flex:0 0 28px;
+    -webkit-mask-image:url('assets/diamond-icon.png');mask-image:url('assets/diamond-icon.png');
+    -webkit-mask-position:center;mask-position:center;
+  }
+  .meta{text-align:right;display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:end}
+  .meta .lbl{font-family:'Cormorant Garamond',serif;font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+  .meta .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:12.5px;color:var(--text);font-weight:500;min-height:14px}
+
+  .id-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-bottom:1px solid var(--gold)}
+  .id-cell{padding:12px 14px 14px;border-right:1px solid rgba(184,150,62,.4);min-height:50px}
+  .id-cell:last-child{border-right:none}
+  .id-lbl{font-size:8.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+  .id-val{font-family:'Cormorant Garamond',Georgia,serif;font-size:14px;color:var(--text);font-weight:500;min-height:18px}
+  .id-val.mono{letter-spacing:.04em}
+
+  .body{flex:1;min-height:0;display:grid;grid-template-columns:2in 1fr;gap:16px;padding:10px 0 0}
+  .panel-lbl{font-size:8.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+  .ref-well{border:1px solid rgba(184,150,62,.55);background:#fff;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+  .ref-well img{max-width:95%;max-height:95%;object-fit:contain;display:block}
+  .ref-well .placeholder{text-align:center;color:var(--gold);font-size:9px;letter-spacing:.25em;text-transform:uppercase;line-height:1.7;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%}
+  .ref-well .placeholder svg{width:56px;height:56px;opacity:.35;margin-bottom:6px}
+
+  .right{display:flex;flex-direction:column;gap:12px;min-height:0}
+  .lined{display:flex;flex-direction:column}
+  .lined .row{display:grid;grid-template-columns:1.3fr 1fr .7fr .5fr .7fr;gap:10px;padding:7px 2px 5px;border-bottom:1px solid rgba(184,150,62,.4);font-family:'Cormorant Garamond',Georgia,serif;font-size:12.5px;align-items:end;min-height:26px}
+  .lined .row.blank > span{color:transparent}
+  .lined .row.head{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--gold);padding-bottom:4px;min-height:0;font-family:'DM Sans',sans-serif;font-weight:600}
+  .lined .row .num{text-align:right;font-variant-numeric:tabular-nums}
+  .lined .row .ct-blank{display:inline-block;min-width:56px;height:12px;border-bottom:1px solid var(--gold)}
+  .stones-foot{display:flex;justify-content:flex-end;gap:18px;margin-top:6px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+  .stones-foot .v{color:var(--text);font-family:'Cormorant Garamond',serif;font-size:12px;letter-spacing:.03em}
+
+  .notes-area{flex:1;min-height:0;display:flex;flex-direction:column}
+  .notes-lines{flex:1;background-image:linear-gradient(to bottom,transparent calc(100% - 1px),rgba(184,150,62,.4) calc(100% - 1px));background-size:100% 22px;background-repeat:repeat-y;background-position:0 0;min-height:62px;padding-top:1px}
+  .notes-text{font-family:'Cormorant Garamond',Georgia,serif;font-size:12.5px;line-height:22px;color:var(--text);font-style:italic;margin:0}
+
+  /* Footer — no top border. The gold rule above the Received & Accepted By
+     row was being clipped by the page edge on the second half, so we drop it. */
+  .foot{display:grid;grid-template-columns:1.4fr 1fr .5fr;gap:18px;padding-top:8px;padding-bottom:6px;align-items:end;margin-top:auto}
+  .foot .acceptance{font-size:9px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);line-height:1.5}
+  .foot .sig-line{border-bottom:1px solid var(--gold);height:16px}
+  .foot .sig-cap{font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-top:4px}
+
+  .cut{display:flex;align-items:center;gap:12px;color:var(--gold);font-size:11px;font-style:italic;letter-spacing:.15em;padding:8px 0;position:relative;z-index:1}
+  .cut .dash{flex:1;border-top:1px dashed var(--gold);height:0}
+  .cut svg{width:16px;height:16px;flex-shrink:0}
+
+  .empty-state{max-width:520px;margin:80px auto;padding:32px;text-align:center;font-family:'DM Sans',sans-serif;color:var(--text2)}
+  .empty-state h2{font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--peacock);margin:0 0 10px;letter-spacing:.05em}
+  .empty-state p{font-size:.92rem;line-height:1.6}
+  .empty-state a{color:var(--peacock);font-weight:600}
+
+  /* Print rules — hide everything that isn't the sheet, drop shadows, force colors. */
+  @media print{
+    .toolbar,.stage > *:not(.sheet){display:none !important}
+    .stage{padding:0}
+    body{background:var(--cream);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .sheet{box-shadow:none;margin:0}
+  }
+</style>
+</head>
+<body>
+
+<header class="toolbar" id="toolbar">
+  <h1>
+    <span class="tb-logo"><span class="brand-mark" role="img" aria-label="LabGrownBox"></span></span>
+    Memo
+    <span class="doc" id="docTag"></span>
+  </h1>
+  <div class="spacer"></div>
+  <span class="tb-hint">Use your browser's print dialog to <strong>Save as PDF</strong></span>
+  <a href="/orders-app/index.html" class="tb-btn ghost" id="backBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    Back to orders
+  </a>
+  <button type="button" class="tb-btn" id="printBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Print / Save as PDF
+  </button>
+</header>
+
+<div class="stage" id="stage">
+  <!-- sheet renders here -->
+</div>
+
+<script>
+/* ─── memo renderer ──────────────────────────────────────────────────────
+   Reads the order id from ?id=ORD-### in the URL, looks the order up in
+   localStorage (same origin/path as the orders-app), and builds the
+   Manufacturing Specification sheet from the order's data. */
+
+function memoEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function memoFmtDate(d){if(!d)return '';try{return new Date(d.length===10?d+'T12:00:00':d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}catch(_){return d;}}
+
+function memoStoneRows(o){
+  var arr = Array.isArray(o.stones) ? o.stones.slice() : [];
+  if(!arr.length){
+    if(o.stoneShape || o.stoneMM || o.stonePcs){
+      arr.push({position:'', shape:o.stoneShape||'', sizeMm:o.stoneMM||'', pcs: o.stonePcs ? Number(o.stonePcs)||null : null, caratTotal: o.stoneCt ? Number(o.stoneCt)||null : null});
+    }
+  }
+  var rows = arr.slice(0,5).map(function(s){
+    var pos = memoEsc(s.position||'');
+    var shape = memoEsc(s.shape||'');
+    var size = memoEsc(s.sizeMm||s.mm||'');
+    var pcs = s.pcs!=null ? memoEsc(s.pcs) : '';
+    return '<div class="row">'
+      + '<span>'+(pos||'·')+'</span>'
+      + '<span>'+(shape||'·')+'</span>'
+      + '<span class="num">'+(size||'·')+'</span>'
+      + '<span class="num">'+(pcs||'·')+'</span>'
+      + '<span class="num"><span class="ct-blank"></span></span>'
+      + '</div>';
+  });
+  while(rows.length < 4) rows.push('<div class="row blank"><span>·</span><span>·</span><span class="num">·</span><span class="num">·</span><span class="num">·</span></div>');
+  return rows.join('');
+}
+
+function memoTotalPcs(o){
+  if(Array.isArray(o.stones) && o.stones.length){
+    return o.stones.reduce(function(a,s){
+      return a + (typeof s.pcs==='number' && Number.isFinite(s.pcs) ? s.pcs : Number(s.pcs)||0);
+    }, 0) || '';
+  }
+  return o.stonePcs || '';
+}
+
+function buildHalf(o, ctx, half){
+  var label = half === 2 ? 'Ct returned' : 'Ct sent';
+  var rightFootLbl = half === 2 ? 'Broken / lost' : 'Total ct';
+  return ''
+    + '<section class="half">'
+      + '<div class="head">'
+        + '<div class="word"><span class="brand-mark" role="img" aria-label="LabGrownBox"></span><span class="brand-mark" role="img" aria-label="LabGrownBox · Lab Grown Diamonds — Now and Forever"></span></div>'
+        + '<div class="meta">'
+          + '<div><div class="lbl">Document No.</div><div class="v">'+memoEsc(ctx.docNo)+(half===2?'-B':'-A')+'</div></div>'
+          + '<div><div class="lbl">Date</div><div class="v">'+memoEsc(ctx.dateStr)+'</div></div>'
+        + '</div>'
+      + '</div>'
+      + '<div class="id-row">'
+        + '<div class="id-cell"><div class="id-lbl">Product ID</div><div class="id-val mono">'+ctx.productId+'</div></div>'
+        + '<div class="id-cell"><div class="id-lbl">Need It By</div><div class="id-val">'+(memoEsc(ctx.needBy)||'—')+'</div></div>'
+        + '<div class="id-cell"><div class="id-lbl">Setter</div><div class="id-val">'+ctx.setter+'</div></div>'
+      + '</div>'
+      + '<div class="body">'
+        + '<div>'
+          + '<div class="panel-lbl">Design Reference</div>'
+          + '<div class="ref-well">'+ctx.refBlock+'</div>'
+        + '</div>'
+        + '<div class="right">'
+          + '<div>'
+            + '<div class="panel-lbl">Stones</div>'
+            + '<div class="lined">'
+              + '<div class="row head">'
+                + '<span>Position</span><span>Shape</span><span class="num">Size mm</span><span class="num">Pcs</span><span class="num">'+label+'</span>'
+              + '</div>'
+              + ctx.rows
+            + '</div>'
+            + '<div class="stones-foot">'
+              + '<div>Total pcs · <span class="v">'+(ctx.totalPcs?memoEsc(ctx.totalPcs):'<span class=\"ct-blank\"></span>')+'</span></div>'
+              + '<div>'+rightFootLbl+' · <span class="v"><span class="ct-blank"></span></span></div>'
+            + '</div>'
+          + '</div>'
+          + '<div class="notes-area">'
+            + '<div class="panel-lbl">Notes</div>'
+            + '<div class="notes-lines">'+(ctx.notesText?'<p class="notes-text">'+ctx.notesText+'</p>':'')+'</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+      + '<div class="foot">'
+        + '<div class="acceptance">Received &amp; Accepted By</div>'
+        + '<div><div class="sig-line"></div><div class="sig-cap">Signature</div></div>'
+        + '<div><div class="sig-line"></div><div class="sig-cap">Date</div></div>'
+      + '</div>'
+    + '</section>';
+}
+
+function buildSheet(o){
+  var docNo = 'LGB-' + (o.id||'').replace(/^ORD-/,'') + (o.styleCode ? ('-' + String(o.styleCode).replace(/[^A-Z0-9]/gi,'').slice(0,4).toUpperCase()) : '');
+  var today = new Date();
+  var dateStr = today.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  var productId = memoEsc(o.styleCode||'—') + ' / ' + memoEsc(o.id||'');
+  var needBy = memoFmtDate(o.castPickupDate || o.setDate || '');
+  var setter = memoEsc(o.setter || '—');
+  var notesText = memoEsc(o.notes||'').replace(/\n/g,'<br>');
+  var refImg = o.imageUrl || (Array.isArray(o.imageUrls) && o.imageUrls[0]) || '';
+  var totalPcs = memoTotalPcs(o);
+  var rowsSent = memoStoneRows(o);
+  var rowsReturned = memoStoneRows(o);
+  var refBlock = refImg
+    ? '<img src="'+memoEsc(refImg)+'" alt="Design reference" onerror="this.style.display=\'none\';this.parentElement.querySelector(\'.placeholder\').style.display=\'flex\'">'
+      + '<div class="placeholder" style="display:none">'
+        + '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#B8963E" stroke-width="2" stroke-linejoin="round"><path d="M 18 38 L 50 12 L 82 38 L 50 92 Z"/><path d="M 18 38 L 82 38"/><path d="M 32 38 L 50 12 L 68 38"/><path d="M 32 38 L 50 92 M 68 38 L 50 92"/></svg>'
+        + '<div>CAD reference</div>'
+      + '</div>'
+    : '<div class="placeholder">'
+        + '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#B8963E" stroke-width="2" stroke-linejoin="round"><path d="M 18 38 L 50 12 L 82 38 L 50 92 Z"/><path d="M 18 38 L 82 38"/><path d="M 32 38 L 50 12 L 68 38"/><path d="M 32 38 L 50 92 M 68 38 L 50 92"/></svg>'
+        + '<div>CAD reference</div>'
+      + '</div>';
+
+  var ctxA = {docNo:docNo, dateStr:dateStr, productId:productId, needBy:needBy, setter:setter, notesText:notesText, refBlock:refBlock, rows:rowsSent, totalPcs:totalPcs};
+  var ctxB = {docNo:docNo, dateStr:dateStr, productId:productId, needBy:needBy, setter:setter, notesText:notesText, refBlock:refBlock, rows:rowsReturned, totalPcs:totalPcs};
+
+  var cut = '<div class="cut" aria-hidden="true">'
+    + '<span class="dash"></span>'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="#B8963E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>'
+    + '<span class="dash"></span>'
+  + '</div>';
+
+  return ''
+    + '<div class="sheet">'
+      + '<div class="watermark" aria-hidden="true">'
+        + '<div class="wm-half"><div class="wm-mark"></div></div>'
+        + '<div class="wm-half"><div class="wm-mark"></div></div>'
+      + '</div>'
+      + buildHalf(o, ctxA, 1)
+      + cut
+      + buildHalf(o, ctxB, 2)
+    + '</div>';
+}
+
+function loadOrder(id){
+  if(!id) return null;
+  try{
+    var raw = localStorage.getItem('lgb_orders');
+    if(!raw) return null;
+    var arr = JSON.parse(raw);
+    if(!Array.isArray(arr)) return null;
+    return arr.find(function(o){ return o && o.id === id; }) || null;
+  }catch(_){
+    return null;
+  }
+}
+
+function emptyState(id){
+  return '<div class="empty-state">'
+    + '<h2>Memo not available</h2>'
+    + '<p>We could not find an order with id <code>'+memoEsc(id||'(missing)')+'</code> in your local storage.</p>'
+    + '<p><a href="/orders-app/index.html">Back to orders →</a></p>'
+  + '</div>';
+}
+
+(function init(){
+  var url = new URL(window.location.href);
+  var id = url.searchParams.get('id');
+  var stage = document.getElementById('stage');
+  var docTag = document.getElementById('docTag');
+  var order = loadOrder(id);
+  if(!order){
+    stage.innerHTML = emptyState(id);
+    document.title = 'LABGROWNBOX · Memo';
+    return;
+  }
+  stage.innerHTML = buildSheet(order);
+  var docNo = 'LGB-' + (order.id||'').replace(/^ORD-/,'') + (order.styleCode ? ('-' + String(order.styleCode).replace(/[^A-Z0-9]/gi,'').slice(0,4).toUpperCase()) : '');
+  document.title = 'LABGROWNBOX · Memo ' + docNo;
+  if(docTag) docTag.textContent = docNo;
+
+  document.getElementById('printBtn').addEventListener('click', function(){
+    window.print();
+  });
+  /* Keyboard shortcut — Ctrl/Cmd + P uses the browser default which already
+     opens the same dialog with Save-as-PDF as a destination, so no extra
+     handler is needed. */
+})();
+</script>
+</body>
+</html>

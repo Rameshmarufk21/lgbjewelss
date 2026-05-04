@@ -1,4 +1,10 @@
 <!DOCTYPE html>
+<!--
+  LabGrownBox · Production Pipeline
+  Copyright © 2026 LabGrownBox, Inc. All rights reserved.
+  Proprietary software — see /LICENSE in the repository root.
+  Tech support: miravparekhedu@gmail.com
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,6 +12,10 @@
 <meta name="theme-color" content="#0d2b6e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="LGB Orders">
+<meta name="application-name" content="LabGrownBox Orders">
+<meta name="author" content="LabGrownBox, Inc.">
+<meta name="copyright" content="© 2026 LabGrownBox, Inc.">
+<meta name="robots" content="noindex,nofollow">
 <link rel="manifest" href="manifest.json">
 <title>LabGrownBox</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -299,7 +309,7 @@ textarea.fc{resize:vertical;min-height:68px}
   <div class="page-hd">
     <div>
       <h1 class="page-title">Orders</h1>
-      <p class="page-sub" id="pageSub">All active custom orders · <button type="button" class="linkish" onclick="downloadExcel()" title="Download CSV">Export CSV</button></p>
+      <p class="page-sub" id="pageSub">All active custom orders · <button type="button" class="linkish" onclick="downloadExcel()" title="Download .xls (opens in Excel / Numbers / Sheets)">Export Excel</button></p>
     </div>
     <div class="view-tgs">
       <button class="vbtn active" id="gridBtn" onclick="setView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
@@ -610,9 +620,12 @@ function openDetail(id){
     ${(o.extras||[]).length?`<div class="dbox"><div class="dbox-hd">Extras / Complications</div><div class="dgrid">${o.extras.map(e=>`<div class="dcell" style="grid-column:span 2"><div class="dclabel">Item</div><div class="dcval">${e.desc}</div></div>${dc_('Cost',fmt$(e.cost),'hi')}`).join('')}</div></div>`:''}
     ${o.notes?`<div class="dbox"><div class="dbox-hd">Notes</div><div style="padding:10px 14px;font-size:.84rem;color:var(--text2);line-height:1.6">${o.notes}</div></div>`:''}
     ${imgs.length?`<div class="qv-wrap"><div class="qv-hd">Quick View Images</div><div class="qv-grid">${imgs.map((u,i)=>`<button class="qv-item" type="button" onclick="openImage('${encodeURIComponent(u)}')"><img src="${u}" alt="Order image ${i+1}"><div class="qv-cap">Image ${i+1}</div></button>`).join('')}</div></div>`:''}
-    <div style="display:flex;gap:8px;justify-content:space-between;padding-top:4px">
+    <div style="display:flex;gap:8px;justify-content:space-between;padding-top:4px;flex-wrap:wrap">
       <button class="btn btn-r" onclick="deleteOrder('${id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete</button>
-      <button class="btn btn-p" onclick="editCurrent()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit Order</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-g" onclick="openMemo('${id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>Memo</button>
+        <button class="btn btn-p" onclick="editCurrent()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit Order</button>
+      </div>
     </div>
   </div>`;
   openOverlay('detailOverlay');
@@ -627,6 +640,25 @@ function orderImages(o){
   return [...new Set(arr.filter(Boolean))];
 }
 function openImage(encoded){window.open(decodeURIComponent(encoded),'_blank');}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   MEMO — opens the Manufacturing Specification page in the same site.
+   The actual sheet markup + CSS lives in /orders-app/memo.html, which
+   reads the order from localStorage by ?id= and prints natively (the
+   browser's print dialog has "Save as PDF" as a built-in destination on
+   every modern OS, so we don't need a custom PDF generator).
+   ───────────────────────────────────────────────────────────────────── */
+function openMemo(id){
+  const o=orders.find(x=>x.id===id);
+  if(!o){toast('Order not found','err');return;}
+  // Make sure the latest data (including stones[]) is on disk before the memo
+  // page reads it from localStorage.
+  persist();
+  const target='memo.html?id='+encodeURIComponent(id);
+  // The orders-app loads inside an iframe from the Next shell. Navigate the
+  // iframe in place — same site, same window, no popup.
+  window.location.href=target;
+}
 function setStatus(id,s){const o=orders.find(x=>x.id===id);if(!o)return;o.status=s;persist();openDetail(id);render();toast(`Status → ${s}`,'ok');}
 function deleteOrder(id){if(!confirm('Delete this order?'))return;orders=orders.filter(o=>o.id!==id);persist();closeOverlay('detailOverlay');render();toast('Order deleted','err');}
 
@@ -635,15 +667,25 @@ function editCurrent(){const o=orders.find(x=>x.id===editId);if(!o)return;closeO
 function clearForm(){FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});$$('xList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';}
 function fillForm(o){clearForm();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el&&o[k])el.value=o[k];});(o.extras||[]).forEach(e=>addExtra(e.desc,e.cost));}
 function saveOrder(){
-  const hasMultiLines=scanType==='casting' && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1;
+  const hasMultiLines=(scanType==='casting'||scanType==='setting') && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1;
   const sc=$$('f_styleCode').value.trim();
   if(!sc && !hasMultiLines){toast('Style code required','err');return;}
   const extras=Array.from(document.querySelectorAll('.xrow')).map(r=>({desc:r.querySelector('.xd').value,cost:r.querySelector('.xc').value})).filter(e=>e.desc);
   const data={extras};FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)data[k]=el.value;});
   if(pendingScanImageDataUrl)data.imageUrl=pendingScanImageDataUrl;
+  if(pendingExtraction && Array.isArray(pendingExtraction.stones) && pendingExtraction.stones.length){
+    data.stones=pendingExtraction.stones.map(s=>({
+      position:s&&typeof s.position==='string'?s.position:'',
+      shape:s&&typeof s.shape==='string'?s.shape:'',
+      sizeMm:s&&(typeof s.sizeMm==='string'?s.sizeMm:typeof s.mm==='string'?s.mm:''),
+      pcs:s&&typeof s.pcs==='number'?s.pcs:(s&&s.pcs?Number(s.pcs)||null:null),
+      caratEach:s&&typeof s.caratEach==='number'?s.caratEach:null,
+      caratTotal:s&&typeof s.caratTotal==='number'?s.caratTotal:null
+    }));
+  }
   try{
     if(editId){const i=orders.findIndex(o=>o.id===editId);orders[i]=migrateOrder({...orders[i],...data});toast('Updated ✓','ok');}
-    else if(scanType==='casting' && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1){
+    else if((scanType==='casting'||scanType==='setting') && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1){
       const created=buildOrdersFromLineItems(data,pendingExtraction.line_items);
       created.forEach(o=>{orders.push(migrateOrder(o));});
       toast(`Saved ${created.length} orders from invoice lines ✓`,'ok');
@@ -659,17 +701,31 @@ function saveOrder(){
   closeOverlay('newOrderOverlay');render();
 }
 
+function collectLineStyleOverrides(){
+  const nodes=[...document.querySelectorAll('[data-line-style-idx]')];
+  const out={};
+  nodes.forEach(n=>{
+    const i=Number(n.getAttribute('data-line-style-idx'));
+    if(!Number.isFinite(i))return;
+    const v=String(n.value||'').trim().toUpperCase();
+    if(v)out[i]=v;
+  });
+  return out;
+}
+
 function buildOrdersFromLineItems(baseData,lineItems){
   const out=[];
   let seq=orders.length+1;
-  lineItems.forEach(li=>{
+  const overrides=collectLineStyleOverrides();
+  lineItems.forEach((li,idx)=>{
     if(!li||!li.description)return;
     const m=String(li.description).match(/\b([A-Z]{2,5}-?\d{1,4}[A-Z]?)\b/);
-    const styleCode=m?m[1]:baseData.styleCode;
+    const styleCode=overrides[idx]|| (m?m[1]:baseData.styleCode);
     if(!styleCode)return;
-    const metal=(String(li.description).match(/\b(Platinum|14K|18K|10K|Silver)\b/i)||[])[1]||baseData.metal||'';
+    const metal=(String(li.description).match(/\b(Platinum|14K(?:\s+[A-Za-z]+)?|18K(?:\s+[A-Za-z]+)?|10K(?:\s+[A-Za-z]+)?|Silver)\b/i)||[])[1]||baseData.metal||'';
     const productType=guessProductType(li.description)||baseData.productType||'Ring';
-    const castTotal=li.amount!=null?String(li.amount):baseData.castTotal||'';
+    const amountRaw=li.amount!=null?li.amount:(li.line_total!=null?li.line_total:null);
+    const castTotal=amountRaw!=null?String(amountRaw):baseData.castTotal||'';
     out.push(migrateOrder({
       id:'ORD-'+String(seq++).padStart(3,'0'),
       createdAt:new Date().toISOString().slice(0,10),
@@ -678,6 +734,12 @@ function buildOrdersFromLineItems(baseData,lineItems){
       productType,
       metal,
       castTotal,
+      stoneShape:li.shape?String(li.shape):baseData.stoneShape,
+      stoneMM:li.mm_size?String(li.mm_size):baseData.stoneMM,
+      stonePcs:li.pcs!=null?String(li.pcs):baseData.stonePcs,
+      stoneCt:li.cts!=null?String(li.cts):baseData.stoneCt,
+      stonePrice:li.price_per_ct!=null?String(li.price_per_ct):baseData.stonePrice,
+      stoneTotal:li.line_total!=null?String(li.line_total):baseData.stoneTotal,
       notes:(baseData.notes?baseData.notes+' | ':'')+'Auto-created from scanned invoice line'
     }));
   });
@@ -796,14 +858,98 @@ async function scanDoc(file){
 }
 function applyExt(ext){pendingExtraction=ext;const map={castInvoice:'f_castInvoice',castDate:'f_castDate',castVendor:'f_castVendor',castDWT:'f_castDWT',castGrams:'f_castGrams',castPrint:'f_castPrint',castTotal:'f_castTotal',castPickup:'f_castPickup',castPickupDate:'f_castPickupDate',setInvoice:'f_setInvoice',setDate:'f_setDate',setter:'f_setter',setJob:'f_setJob',setST:'f_setST',setPrice:'f_setPrice',setLabor:'f_setLabor',setLaser:'f_setLaser',setTotal:'f_setTotal',stoneLot:'f_stoneLot',stonePcs:'f_stonePcs',stoneCt:'f_stoneCt',stonePrice:'f_stonePrice',stoneTotal:'f_stoneTotal',stoneMM:'f_stoneMM',stoneShape:'f_stoneShape',stoneColor:'f_stoneColor',stoneSieve:'f_stoneSieve',stoneCert:'f_stoneCert',styleCode:'f_styleCode',productType:'f_productType',metal:'f_metal',size:'f_size',placedBy:'f_placedBy',status:'f_status',linkedOrderId:'f_linkedOrderId',notes:'f_notes'};let n=0;function skipVal(v){if(v===null||v===undefined)return true;if(typeof v==='string'&&!v.trim())return true;return false;}Object.entries(ext).forEach(([k,v])=>{if(k==='line_items'||skipVal(v))return;const id=map[k];if(id){const el=$$(id);if(el&&!el.value){el.value=String(v);n++;}}});const lines=Array.isArray(ext.line_items)?ext.line_items:[];if(lines.length){const first=lines[0]||{};const d=String(first.description||'');const style=(d.match(/\b([A-Z]{2,5}-?\d{1,4}[A-Z]?)\b/)||[])[1]||'';const metal=(d.match(/\b(Platinum|14K(?:\s+\w+)?|18K(?:\s+\w+)?|10K(?:\s+\w+)?|Silver)\b/i)||[])[1]||'';const ptype=guessProductType(d);if(style&&$$('f_styleCode')&&!$$('f_styleCode').value){$$('f_styleCode').value=style;n++;}if(metal&&$$('f_metal')&&!$$('f_metal').value){$$('f_metal').value=metal;n++;}if(ptype&&$$('f_productType')&&!$$('f_productType').value){$$('f_productType').value=ptype;n++;}if(first.amount!=null&&$$('f_castTotal')&&!$$('f_castTotal').value){$$('f_castTotal').value=String(first.amount);n++;}}const linesHtml=lines.length?`<div class="aihd" style="margin-top:8px">Invoice lines detected: ${lines.length} (Save will create ${lines.length} cards)</div>${lines.map((li,i)=>`<div class="airow"><span class="aik">line ${i+1}</span><span class="aiv">${(li.description||'').slice(0,52)}${li.amount!=null?` · $${Number(li.amount).toFixed(2)}`:''}</span></div>`).join('')}`:'';$$('airesult').innerHTML=`<div class="aihd">✓ AI filled ${n} fields</div>${Object.entries(ext).filter(([k,v])=>k!=='line_items'&&!skipVal(v)).map(([k,v])=>`<div class="airow"><span class="aik">${k}</span><span class="aiv">${v}</span></div>`).join('')}${linesHtml}`;$$('airesult').classList.add('show');toast(`AI filled ${n} fields`,'ok');}
 function toB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+/**
+ * Export to a real Excel-compatible file. Builds a SpreadsheetML 2003 XML
+ * document and saves it as .xls — Excel, Numbers, and Google Sheets all open
+ * it natively, with NO external library / CDN. Numbers stay numeric, two
+ * sheets (Orders + Vendors) so the dashboard breakdown lives alongside.
+ */
 function downloadExcel(){
-  const hdrs=['Order ID','Style Code','Product','Metal','Size','Status','Placed By','Created','Cast Vendor','Cast Invoice','Cast Date','Cast DWT','Cast Grams','Print Fee','Cast Total','Stone Shape','Stone Color','Stone Pcs','Stone Ct','Price/Ct','Stone Total','Setter','Set Invoice','Set Date','Set Price','Labor','Set Total','Extras','Extras Total','Notes','Grand Total'];
-  const rows=orders.map(o=>{const cost=totalCost(o);const et=(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0);const ed=(o.extras||[]).map(e=>e.desc).join(' | ');return[o.id,o.styleCode,o.productType,o.metal,o.size,o.status,o.placedBy,o.createdAt,o.castVendor,o.castInvoice,o.castDate,o.castDWT,o.castGrams,o.castPrint,o.castTotal,o.stoneShape,o.stoneColor,o.stonePcs,o.stoneCt,o.stonePrice,o.stoneTotal,o.setter,o.setInvoice,o.setDate,o.setPrice,o.setLabor,o.setTotal,ed,et||'',o.notes,cost?cost.toFixed(2):''].map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"');});
+  if(!orders.length){toast('No orders to export','err');return;}
+  const num=(v)=>{const n=parseFloat(v);return Number.isFinite(n)?n:null;};
+  const ordersRows=orders.map(o=>{
+    const cost=totalCost(o);
+    const et=(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0);
+    const ed=(o.extras||[]).map(e=>`${e.desc}${e.cost?' ($'+e.cost+')':''}`).join(' | ');
+    return [
+      o.id||'',o.styleCode||'',o.productType||'',o.metal||'',o.size||'',
+      o.status||'',o.placedBy||'',o.createdAt||'',
+      o.castVendor||'',o.castInvoice||'',o.castDate||'',
+      num(o.castDWT),num(o.castGrams),num(o.castPrint),num(o.castTotal),
+      o.stoneShape||'',o.stoneColor||'',
+      num(o.stonePcs),num(o.stoneCt),num(o.stonePrice),num(o.stoneTotal),
+      o.setter||'',o.setInvoice||'',o.setDate||'',
+      num(o.setPrice),num(o.setLabor),num(o.setTotal),
+      ed,et||null,(o.notes||'').replace(/\s+/g,' ').trim(),cost||null,
+    ];
+  });
+  const ordersHdrs=['Order ID','Style Code','Product','Metal','Size','Status','Placed By','Created','Cast Vendor','Cast Invoice','Cast Date','Cast DWT','Cast Grams','Print Fee','Cast Total','Stone Shape','Stone Color','Stone Pcs','Stone Ct','Price/Ct','Stone Total','Setter','Set Invoice','Set Date','Set Price','Labor','Set Total','Extras','Extras Total','Notes','Grand Total'];
+  const ordersWidths=[60,80,70,110,60,75,80,80,130,90,80,60,70,70,80,100,80,60,60,60,80,90,80,80,70,55,75,260,80,260,80];
+
+  const vendorTotals={};
+  orders.forEach(o=>{
+    const v=(o.castVendor||'').trim()||'(none)';
+    if(!vendorTotals[v])vendorTotals[v]={Vendor:v,Orders:0,Total:0};
+    vendorTotals[v].Orders+=1;
+    const ct=parseFloat(o.castTotal);if(Number.isFinite(ct))vendorTotals[v].Total+=ct;
+  });
+  const vendorRows=Object.values(vendorTotals).sort((a,b)=>b.Orders-a.Orders).map(v=>[v.Vendor,v.Orders,v.Total]);
+  const vendorHdrs=['Vendor','Orders','Total Cast $'];
+  const vendorWidths=[180,70,110];
+
+  const xml=buildSpreadsheetML([
+    {name:'Orders',headers:ordersHdrs,rows:ordersRows,widths:ordersWidths},
+    ...(vendorRows.length?[{name:'Vendors',headers:vendorHdrs,rows:vendorRows,widths:vendorWidths}]:[]),
+  ]);
+  const blob=new Blob([xml],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='LabGrownBox_Orders_'+new Date().toISOString().slice(0,10)+'.xls';
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},150);
+  toast(`Exported ${orders.length} orders ✓`,'ok');
+}
+
+/** Build SpreadsheetML 2003 XML — opens cleanly in Excel/Sheets/Numbers. */
+function buildSpreadsheetML(sheets){
+  const xmlEsc=(s)=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+  const cellFor=(v)=>{
+    if(v==null||v==='')return '<Cell/>';
+    if(typeof v==='number'&&Number.isFinite(v))return `<Cell><Data ss:Type="Number">${v}</Data></Cell>`;
+    return `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`;
+  };
+  const headerCellFor=(v)=>`<Cell ss:StyleID="hdr"><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`;
+  const sheetXml=(s)=>{
+    const colsXml=(s.widths||[]).map(w=>`<Column ss:AutoFitWidth="0" ss:Width="${w}"/>`).join('');
+    const headerRow=`<Row ss:StyleID="hdr">${(s.headers||[]).map(headerCellFor).join('')}</Row>`;
+    const dataRows=(s.rows||[]).map(r=>`<Row>${r.map(cellFor).join('')}</Row>`).join('');
+    return `<Worksheet ss:Name="${xmlEsc(s.name)}"><Table>${colsXml}${headerRow}${dataRows}</Table></Worksheet>`;
+  };
+  return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+<Styles>
+ <Style ss:ID="hdr"><Font ss:Bold="1"/><Interior ss:Color="#0d2b6e" ss:Pattern="Solid"/><Font ss:Color="#FDF6EC" ss:Bold="1"/></Style>
+</Styles>
+${sheets.map(sheetXml).join('\n')}
+</Workbook>`;
+}
+
+/* legacy CSV path retired — see downloadExcel() above for the real .xls export */
+function _legacyDownloadExcelCsv_unused(){if(false){
+  const hdrs=[];const rows=[];
   const csv=[hdrs.map(h=>`"${h}"`).join(','),...rows.map(r=>r.join(','))].join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='LabGrownBox_Orders_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
   toast('Downloaded! Open in Excel or Sheets ✓','ok');
-}
+}}
 
 function setTab(t){tab=t;render();}
 function setView(v){view=v;$$('gridBtn').classList.toggle('active',v==='grid');$$('listBtn').classList.toggle('active',v==='list');render();}
