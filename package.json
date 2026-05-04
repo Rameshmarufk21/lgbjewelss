@@ -1,12 +1,18 @@
 {
-  "name": "x",
-  "version": "0.1.0",
+  "name": "labgrownbox",
+  "version": "1.0.0",
   "private": true,
+  "description": "LabGrownBox internal jewelry-operations app — orders, AI invoice extraction, stone memos, dashboard.",
+  "license": "UNLICENSED",
+  "author": "LabGrownBox, Inc.",
+  "homepage": "https://github.com/labgrownbox/labgrownbox",
   "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
+    "dev": "ulimit -n 8192 2>/dev/null; next dev",
+    "dev:turbo": "ulimit -n 8192 2>/dev/null; next dev --turbopack",
+    "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -17,6 +23,8 @@
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
+    "sharp": "^0.34.5",
     "tesseract.js": "^5.1.1",
     "zod": "^3.23.8"
   },
