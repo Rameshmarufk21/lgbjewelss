@@ -10,17 +10,35 @@ export default function SettingsPage() {
   const [geminiMsg, setGeminiMsg] = useState("");
 
   async function loadMakers() {
-    const res = await fetch("/api/makers");
-    const data = await res.json();
-    setMakers(data.makers ?? []);
+    try {
+      const res = await fetch("/api/makers");
+      if (!res.ok) {
+        setMakers([]);
+        return;
+      }
+      const text = await res.text();
+      if (!text) {
+        setMakers([]);
+        return;
+      }
+      const data = JSON.parse(text) as { makers?: { id: string; name: string }[] };
+      setMakers(data.makers ?? []);
+    } catch {
+      setMakers([]);
+    }
   }
 
   useEffect(() => {
     void loadMakers();
     void (async () => {
-      const res = await fetch("/api/version");
-      const v = await res.json();
-      setVersion(`${v.name}@${v.version}`);
+      try {
+        const res = await fetch("/api/version");
+        if (!res.ok) return;
+        const v = (await res.json()) as { name?: string; version?: string };
+        setVersion(`${v.name ?? "app"}@${v.version ?? "?"}`);
+      } catch {
+        setVersion("");
+      }
     })();
     try {
       localStorage.removeItem("lgb_gemini_key");
@@ -44,6 +62,45 @@ export default function SettingsPage() {
       );
   }
 
+  async function exportExcel() {
+    try {
+      const raw = localStorage.getItem("lgb_orders");
+      const orders = raw ? (JSON.parse(raw) as unknown[]) : [];
+      const res = await fetch("/api/excel/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orders }),
+      });
+      if (!res.ok) {
+        let msg = "Export failed";
+        try {
+          const data = (await res.json()) as { error?: string };
+          if (data.error) msg = data.error;
+        } catch {
+          const text = await res.text();
+          if (text) msg = text;
+        }
+        alert(msg);
+        return;
+      }
+
+      const blob = await res.blob();
+      const cd = res.headers.get("content-disposition") ?? "";
+      const nameMatch = cd.match(/filename="([^"]+)"/i);
+      const filename = nameMatch?.[1] ?? `jewelry-catalog-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Export failed");
+    }
+  }
+
   async function addMaker(e: React.FormEvent) {
     e.preventDefault();
     const res = await fetch("/api/makers", {
@@ -52,8 +109,17 @@ export default function SettingsPage() {
       body: JSON.stringify({ name }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      alert(err.error ?? "Failed");
+      let msg = res.statusText || "Failed";
+      try {
+        const text = await res.text();
+        if (text) {
+          const err = JSON.parse(text) as { error?: string };
+          if (err.error) msg = err.error;
+        }
+      } catch {
+        /* keep statusText */
+      }
+      alert(msg);
       return;
     }
     setName("");
@@ -75,14 +141,18 @@ export default function SettingsPage() {
           Export matches your conditional formatting rules for payments. Import runs a diff preview before merge.
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <a href="/api/excel/export" className="btn btn-p inline-flex items-center gap-2 no-underline">
+          <button
+            type="button"
+            onClick={() => void exportExcel()}
+            className="btn btn-p inline-flex items-center gap-2 no-underline"
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             Export Excel
-          </a>
+          </button>
           <ExcelImportButton variant="settings" />
         </div>
       </section>
