@@ -30,6 +30,37 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Production deployment
+
+Build and run:
+
+```bash
+npm run build   # prisma generate + next build (webpack)
+npm run start   # serves the production build on PORT (default 3000)
+```
+
+**Host requirement:** orders, tasks, the board, and company settings live in the
+browser (localStorage), while **logins and AI keys are stored server-side in
+`.lgb-data/` (git-ignored).** That folder must persist between requests, so deploy
+to a host with a **persistent writable filesystem** — a VPS, Docker, Railway/Render
+with a disk, etc. On **ephemeral serverless** (e.g. Vercel functions) those files
+don't persist; there, supply `GEMINI_API_KEY` and login config via **env vars**
+instead, and keep `.lgb-data` on a mounted volume.
+
+### Security checklist (do before going live)
+- [ ] **Change the seeded passwords.** Log in as `admin` / `lgb2026`, then
+      **Settings → Users → Reset password** for every account. `lgb2026` is a
+      setup placeholder, not a production password.
+- [ ] Set a strong **`LGB_AUTH_SECRET`** (random, ≥24 chars) in the host env and
+      keep `LGB_AUTH_ENABLED="true"`.
+- [ ] Serve over **HTTPS** — session cookies are `Secure` in production and the
+      PWA/service worker require it.
+- [ ] Add your **Gemini key** in Settings → AI keys (admin-only, encrypted at
+      rest). Optionally set `ENCRYPTION_SECRET` in env for a fixed encryption key.
+- [ ] Keep `.env` and `.lgb-data/` out of version control (already git-ignored).
+- [ ] Response security headers (nosniff, SAMEORIGIN, referrer/permissions
+      policy) are set in `next.config.ts`; add a CSP if your host supports it.
+
 ## PWA
 
 Service worker registers in production builds; install from the deployed HTTPS URL on mobile.

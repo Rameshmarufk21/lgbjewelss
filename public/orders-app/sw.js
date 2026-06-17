@@ -1,6 +1,6 @@
 // CACHE NAME — bump on every release that touches memo.html, sw.js, the
 // wordmark, or the orders-app shell. Older caches are wiped in `activate`.
-const CACHE = 'lgb-v5-wordmark-png';
+const CACHE = 'lgb-v6-no-api-cache';
 const ASSETS = ['./index.html', './manifest.json'];
 
 // Files that must always be fresh (network-first). If you ship a code change
@@ -29,6 +29,12 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const reqUrl = new URL(e.request.url);
+
+  // Never cache API responses (metal rates, export, etc.).
+  if (reqUrl.pathname.startsWith('/api/')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
 
   // Network-first for the always-fresh list (HTML files, SW, brand assets).
   if (ALWAYS_FRESH.some(p => reqUrl.pathname.endsWith(p)) || reqUrl.pathname.endsWith('/index.html')) {

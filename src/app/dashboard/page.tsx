@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { loadCompanies, type Company } from "@/lib/companies";
 
 type Order = {
   id?: string;
+  company?: string;
   styleCode?: string;
   productType?: string;
   metal?: string;
@@ -12,6 +14,7 @@ type Order = {
   createdAt?: string;
   castVendor?: string;
   castDate?: string;
+  castGrams?: string | number;
   castTotal?: string | number;
   stoneTotal?: string | number;
   setter?: string;
@@ -66,11 +69,21 @@ function fmtMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
+function fmtMoneyShort(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "$0";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (abs >= 10_000) return `$${(n / 1_000).toFixed(1)}K`;
+  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+}
+
 function fmtMonthLabel(yyyymm: string): string {
   const [y, m] = yyyymm.split("-").map(Number);
   if (!y || !m) return yyyymm;
   return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "short" });
 }
+
+const BREAKDOWN_CARD_CLASSES = ["s-active", "s-cost", "s-gold", "s-pending", "s-completed", "s-active"] as const;
 
 function vendorCanon(raw: string | undefined): string | null {
   if (!raw) return null;
@@ -87,21 +100,31 @@ function vendorCanon(raw: string | undefined): string | null {
 }
 
 export default function DashboardPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [apiData, setApiData] = useState<ApiDash | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [series, setSeries] = useState<"cost" | "profit">("cost");
+  const [companies, setCompanies] = useState<Company[]>([]);
+  // "all" = both businesses combined; otherwise a company id.
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
 
   useEffect(() => {
     try {
       const raw = typeof window !== "undefined" ? window.localStorage.getItem("lgb_orders") : null;
       const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-      if (Array.isArray(parsed)) setOrders(parsed as Order[]);
+      if (Array.isArray(parsed)) setAllOrders(parsed as Order[]);
     } catch {
       /* ignore — empty localStorage is fine */
     }
+    setCompanies(loadCompanies());
+    setCompanyFilter("all");
     setLoaded(true);
   }, []);
+
+  // Orders scoped to the selected company (or all when "all").
+  const orders = useMemo(
+    () => (companyFilter === "all" ? allOrders : allOrders.filter((o) => (o.company || "lgb") === companyFilter)),
+    [allOrders, companyFilter],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -121,12 +144,20 @@ export default function DashboardPage() {
   }, []);
 
   const stats = useMemo(() => {
-    const useApi = !!apiData && apiData.productCount > 0;
+    // The /api/dashboard feed is whole-database and not company-aware, so only
+    // trust it for the combined "all" view; per-company uses the order cards.
+    const useApi = companyFilter === "all" && !!apiData && apiData.productCount > 0;
 
     const totalCost = useApi ? apiData!.totalCostCents / 100 : orders.reduce((a, o) => a + orderCost(o), 0);
     const totalSell = useApi ? apiData!.totalSellCents / 100 : orders.reduce((a, o) => a + num(o.sellPrice), 0);
     const profit = useApi ? apiData!.profitCents / 100 : totalSell - totalCost;
     const orderCount = useApi ? apiData!.productCount : orders.length;
+
+    // Operational stats moved here from the orders home page.
+    const activeOrders = orders.filter((o) => (o.status || "") !== "Completed");
+    const completedOrders = orders.filter((o) => (o.status || "") === "Completed");
+    const pendingCost = activeOrders.reduce((a, o) => a + orderCost(o), 0);
+    const totalGoldGrams = orders.reduce((a, o) => a + num(o.castGrams), 0);
 
     const vendorTotals: Record<string, { count: number; total: number }> = {};
     if (useApi && apiData!.byMaker) {
@@ -180,28 +211,48 @@ export default function DashboardPage() {
       profit: byMonth[m].sell - byMonth[m].cost,
     }));
 
-    return { totalCost, totalSell, profit, orderCount, vendors, productList, points };
-  }, [orders, apiData]);
+    return {
+      totalCost,
+      totalSell,
+      profit,
+      orderCount,
+      vendors,
+      productList,
+      points,
+      activeCount: activeOrders.length,
+      completedCount: completedOrders.length,
+      pendingCost,
+      totalGoldGrams,
+    };
+  }, [orders, apiData, companyFilter]);
 
   const chart = useMemo(() => {
     const w = 880;
     const h = 280;
     const pad = 36;
-    const vals = stats.points.map((p) => (series === "cost" ? p.cost : p.profit));
+    const vals = stats.points.flatMap((p) => [p.cost, p.profit]);
     const min = Math.min(...vals, 0);
     const max = Math.max(...vals, 1);
     const span = max - min || 1;
-    const pts = stats.points.map((p, i) => {
-      const x = pad + (i * (w - pad * 2)) / Math.max(1, stats.points.length - 1);
-      const v = series === "cost" ? p.cost : p.profit;
-      const y = h - pad - ((v - min) * (h - pad * 2)) / span;
-      return { ...p, x, y, v };
-    });
-    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-    return { w, h, pad, pts, d };
-  }, [stats.points, series]);
+    const project = (key: "cost" | "profit") =>
+      stats.points.map((p, i) => {
+        const x = pad + (i * (w - pad * 2)) / Math.max(1, stats.points.length - 1);
+        const v = key === "cost" ? p.cost : p.profit;
+        const y = h - pad - ((v - min) * (h - pad * 2)) / span;
+        return { ...p, x, y, v };
+      });
+    const costPts = project("cost");
+    const profitPts = project("profit");
+    const line = (pts: { x: number; y: number }[]) =>
+      pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+    return { w, h, pad, costPts, profitPts, costD: line(costPts), profitD: line(profitPts) };
+  }, [stats.points]);
 
   const isEmpty = loaded && stats.orderCount === 0;
+  const companyLabel =
+    companyFilter === "all"
+      ? "Both companies"
+      : companies.find((c) => c.id === companyFilter)?.name ?? "Company";
 
   return (
     <div className="lgb-page-stack max-w-6xl">
@@ -209,25 +260,28 @@ export default function DashboardPage() {
         <div>
           <h1 className="page-title">Dashboard</h1>
           <p className="page-sub">
-            {stats.orderCount} order{stats.orderCount === 1 ? "" : "s"} ·{" "}
-            {apiData ? "synced with database" : "synced with order cards"}
+            {companyLabel} · {stats.orderCount} order{stats.orderCount === 1 ? "" : "s"} ·{" "}
+            {companyFilter === "all" && apiData ? "synced with database" : "synced with order cards"}
           </p>
         </div>
         <div className="dash-series-toggle">
           <button
             type="button"
-            className={`dash-toggle ${series === "cost" ? "is-active" : ""}`}
-            onClick={() => setSeries("cost")}
+            className={`dash-toggle ${companyFilter === "all" ? "is-active" : ""}`}
+            onClick={() => setCompanyFilter("all")}
           >
-            Cost
+            All
           </button>
-          <button
-            type="button"
-            className={`dash-toggle ${series === "profit" ? "is-active" : ""}`}
-            onClick={() => setSeries("profit")}
-          >
-            Profit
-          </button>
+          {companies.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`dash-toggle ${companyFilter === c.id ? "is-active" : ""}`}
+              onClick={() => setCompanyFilter(c.id)}
+            >
+              {c.short || c.name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -241,30 +295,59 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="dash-kpi-row">
-            <div className="dash-kpi">
-              <div className="dash-kpi-label">Cost Price</div>
-              <div className="dash-kpi-value">{fmtMoney(stats.totalCost)}</div>
-              <div className="dash-kpi-sub">across {stats.orderCount} orders</div>
+          <div className="dash-stats-row">
+            <div className="stats-card s-active">
+              <div className="stats-card-label">Active Orders</div>
+              <div className="stats-card-value">{stats.activeCount}</div>
+              <div className="stats-card-sub">in production</div>
             </div>
-            <div className="dash-kpi">
-              <div className="dash-kpi-label">Profit</div>
-              <div
-                className="dash-kpi-value"
-                style={{ color: stats.profit >= 0 ? "var(--success)" : "var(--danger)" }}
-              >
-                {fmtMoney(stats.profit)}
+            <div className="stats-card s-pending">
+              <div className="stats-card-label">Pending Cost</div>
+              <div className="stats-card-value">{fmtMoneyShort(stats.pendingCost)}</div>
+              <div className="stats-card-sub">across active orders</div>
+            </div>
+            <div className="stats-card s-gold">
+              <div className="stats-card-label">Total Gold</div>
+              <div className="stats-card-value">
+                {stats.totalGoldGrams.toFixed(2)}
+                <span className="stats-card-unit"> g</span>
               </div>
-              <div className="dash-kpi-sub">
-                sell {fmtMoney(stats.totalSell)} − cost {fmtMoney(stats.totalCost)}
+              <div className="stats-card-sub">cast across all orders</div>
+            </div>
+            <div className="stats-card s-cost">
+              <div className="stats-card-label">Total Cost</div>
+              <div className="stats-card-value">{fmtMoneyShort(stats.totalCost)}</div>
+              <div className="stats-card-sub">
+                sell {fmtMoneyShort(stats.totalSell)} · {stats.orderCount} order
+                {stats.orderCount === 1 ? "" : "s"}
               </div>
+            </div>
+            <div className={`stats-card ${stats.profit >= 0 ? "s-completed" : "s-pending"}`}>
+              <div className="stats-card-label">Profit</div>
+              <div className="stats-card-value">{fmtMoneyShort(stats.profit)}</div>
+              <div className="stats-card-sub">
+                {stats.profit >= 0 ? "net positive" : "net negative"} · all orders
+              </div>
+            </div>
+            <div className="stats-card s-completed">
+              <div className="stats-card-label">Completed</div>
+              <div className="stats-card-value">{stats.completedCount}</div>
+              <div className="stats-card-sub">total finished</div>
             </div>
           </div>
 
           <div className="dash-chart-card">
             <div className="dash-chart-head">
-              <h2>{series === "cost" ? "Cost over time" : "Profit over time"}</h2>
-              <span className="dash-chart-sub">last 6 months</span>
+              <h2>Cost &amp; Profit over time</h2>
+              <span className="dash-chart-sub">last 6 months · {companyLabel}</span>
+            </div>
+            <div className="dash-chart-legend">
+              <span className="dash-legend-item">
+                <span className="dash-legend-dot" style={{ background: "var(--peacock)" }} /> Cost
+              </span>
+              <span className="dash-legend-item">
+                <span className="dash-legend-dot" style={{ background: "var(--success)" }} /> Profit
+              </span>
             </div>
             <div className="dash-chart-body">
               <svg
@@ -273,7 +356,7 @@ export default function DashboardPage() {
                 viewBox={`0 0 ${chart.w} ${chart.h}`}
                 preserveAspectRatio="xMidYMid meet"
                 role="img"
-                aria-label="Trend chart"
+                aria-label="Cost and profit trend chart"
               >
                 <line
                   x1={chart.pad}
@@ -291,17 +374,18 @@ export default function DashboardPage() {
                   stroke="var(--border2)"
                   strokeWidth={1}
                 />
-                <path
-                  d={chart.d}
-                  fill="none"
-                  stroke="var(--peacock)"
-                  strokeWidth={3}
-                  strokeLinejoin="round"
-                />
-                {chart.pts.map((p) => (
-                  <g key={p.month}>
+                <path d={chart.costD} fill="none" stroke="var(--peacock)" strokeWidth={3} strokeLinejoin="round" />
+                <path d={chart.profitD} fill="none" stroke="var(--success)" strokeWidth={3} strokeLinejoin="round" strokeDasharray="2 0" />
+                {chart.profitPts.map((p) => (
+                  <g key={`pr-${p.month}`}>
+                    <circle cx={p.x} cy={p.y} r={4} fill="var(--success)" />
+                    <title>{`${fmtMonthLabel(p.month)} — Profit: ${fmtMoney(p.v)}`}</title>
+                  </g>
+                ))}
+                {chart.costPts.map((p) => (
+                  <g key={`co-${p.month}`}>
                     <circle cx={p.x} cy={p.y} r={4.5} fill="var(--peacock)" />
-                    <title>{`${fmtMonthLabel(p.month)}: ${fmtMoney(p.v)}`}</title>
+                    <title>{`${fmtMonthLabel(p.month)} — Cost: ${fmtMoney(p.v)}`}</title>
                     <text x={p.x} y={chart.h - 12} textAnchor="middle" fontSize={11} fill="var(--text3)">
                       {fmtMonthLabel(p.month)}
                     </text>
@@ -312,35 +396,43 @@ export default function DashboardPage() {
           </div>
 
           <div className="dash-row-head">By vendor</div>
-          <div className="dash-vendor-row">
-            {stats.vendors.length === 0 ? (
-              <div className="dash-empty">No vendor data yet</div>
-            ) : (
-              stats.vendors.slice(0, 8).map((v) => (
-                <div className="dash-vendor" key={v.name}>
-                  <div className="dash-vendor-name">{v.name}</div>
-                  <div className="dash-vendor-count">
-                    {v.count} <span>order{v.count === 1 ? "" : "s"}</span>
+          {stats.vendors.length === 0 ? (
+            <div className="dash-empty">No vendor data yet</div>
+          ) : (
+            <div className="dash-stats-row dash-breakdown-row">
+              {stats.vendors.slice(0, 8).map((v, i) => (
+                <div
+                  className={`stats-card ${BREAKDOWN_CARD_CLASSES[i % BREAKDOWN_CARD_CLASSES.length]}`}
+                  key={v.name}
+                >
+                  <div className="stats-card-label">{v.name}</div>
+                  <div className="stats-card-value">{v.count}</div>
+                  <div className="stats-card-sub">
+                    order{v.count === 1 ? "" : "s"}
+                    {v.total > 0 ? ` · ${fmtMoneyShort(v.total)}` : ""}
                   </div>
-                  {v.total > 0 ? <div className="dash-vendor-total">{fmtMoney(v.total)}</div> : null}
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
           <div className="dash-row-head">By type</div>
-          <div className="dash-product-row">
-            {stats.productList.length === 0 ? (
-              <div className="dash-empty">No product types yet</div>
-            ) : (
-              stats.productList.map((p) => (
-                <div className="dash-product" key={p.name}>
-                  <div className="dash-product-count">{p.count}</div>
-                  <div className="dash-product-name">{p.name}</div>
+          {stats.productList.length === 0 ? (
+            <div className="dash-empty">No product types yet</div>
+          ) : (
+            <div className="dash-stats-row dash-breakdown-row">
+              {stats.productList.map((p, i) => (
+                <div
+                  className={`stats-card ${BREAKDOWN_CARD_CLASSES[(i + 2) % BREAKDOWN_CARD_CLASSES.length]}`}
+                  key={p.name}
+                >
+                  <div className="stats-card-label">{p.name}</div>
+                  <div className="stats-card-value">{p.count}</div>
+                  <div className="stats-card-sub">order{p.count === 1 ? "" : "s"}</div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

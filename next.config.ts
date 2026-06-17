@@ -2,6 +2,25 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["tesseract.js"],
+  // Allow the dev server (incl. HMR websocket) to be reached through tunnels /
+  // LAN so the app works on a phone via cloudflared or the Mac's LAN IP.
+  allowedDevOrigins: ["*.trycloudflare.com", "192.168.1.89"],
+  poweredByHeader: false,
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // The home screen embeds /orders-app via a same-origin iframe.
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "geolocation=(), microphone=(), browsing-topics=()" },
+          { key: "X-DNS-Prefetch-Control", value: "off" },
+        ],
+      },
+    ];
+  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.watchOptions = {

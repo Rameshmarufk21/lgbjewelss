@@ -14,32 +14,37 @@ function dbErrorMessage(err: unknown): string {
 export async function GET() {
   try {
     const buf = await buildCatalogWorkbook();
-    const filename = `jewelry-catalog-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    return new NextResponse(new Uint8Array(buf), {
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-    });
-  } catch (err) {
-    return NextResponse.json({ error: dbErrorMessage(err) }, { status: 503 });
+    return xlsxResponse(buf);
+  } catch {
+    /* No DB — empty catalog export is still useful for local-only dev */
+    try {
+      const buf = await buildCatalogWorkbookFromOrders([]);
+      return xlsxResponse(buf);
+    } catch (err) {
+      return NextResponse.json({ error: dbErrorMessage(err) }, { status: 503 });
+    }
   }
+}
+
+function xlsxResponse(buf: Buffer) {
+  const filename = `jewelry-catalog-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  return new NextResponse(new Uint8Array(buf), {
+    headers: {
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+  });
 }
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as { orders?: unknown[] };
     const orders = Array.isArray(body.orders) ? body.orders : [];
-    const buf = await buildCatalogWorkbookFromOrders(orders as Parameters<typeof buildCatalogWorkbookFromOrders>[0]);
-    const filename = `jewelry-catalog-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    return new NextResponse(new Uint8Array(buf), {
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-    });
+    const buf = await buildCatalogWorkbookFromOrders(
+      orders as Parameters<typeof buildCatalogWorkbookFromOrders>[0],
+    );
+    return xlsxResponse(buf);
   } catch (err) {
     return NextResponse.json({ error: dbErrorMessage(err) }, { status: 503 });
   }

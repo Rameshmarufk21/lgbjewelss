@@ -8,21 +8,44 @@ const IFRAME_SRC = "/orders-app/index.html";
 export function HomeIframe() {
   const sp = useSearchParams();
   const q = sp.get("q") ?? "";
+  const action = sp.get("action");
   const ref = useRef<HTMLIFrameElement>(null);
 
-  const postSearch = useCallback(() => {
+  const postToIframe = useCallback((payload: { type: string; q?: string }) => {
     const win = ref.current?.contentWindow;
     if (!win) return;
-    win.postMessage({ type: "lgb-set-search", q }, window.location.origin);
-  }, [q]);
+    win.postMessage(payload, window.location.origin);
+  }, []);
+
+  const postSearch = useCallback(() => {
+    postToIframe({ type: "lgb-set-search", q });
+  }, [postToIframe, q]);
+
+  const postOpenNewOrder = useCallback(() => {
+    postToIframe({ type: "lgb-open-new-order" });
+  }, [postToIframe]);
+
+  const postOpenMemoCreate = useCallback(() => {
+    postToIframe({ type: "lgb-open-memo-create" });
+  }, [postToIframe]);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.addEventListener("load", postSearch);
-    if (el.contentDocument?.readyState === "complete") postSearch();
-    return () => el.removeEventListener("load", postSearch);
-  }, [postSearch]);
+    const onLoad = () => {
+      postSearch();
+      if (action === "new") postOpenNewOrder();
+      if (action === "memo") postOpenMemoCreate();
+    };
+    el.addEventListener("load", onLoad);
+    if (el.contentDocument?.readyState === "complete") onLoad();
+    return () => el.removeEventListener("load", onLoad);
+  }, [postSearch, postOpenNewOrder, postOpenMemoCreate, action]);
+
+  useEffect(() => {
+    if (action === "new") postOpenNewOrder();
+    if (action === "memo") postOpenMemoCreate();
+  }, [action, postOpenNewOrder, postOpenMemoCreate]);
 
   return (
     <iframe
@@ -32,10 +55,9 @@ export function HomeIframe() {
       className="lgb-home-iframe"
       style={{
         width: "100%",
-        height: "calc(100vh - 76px - env(safe-area-inset-bottom, 0px))",
+        height: "calc(100dvh - 62px)",
         minHeight: 360,
         border: "none",
-        borderRadius: 12,
         background: "transparent",
         display: "block",
       }}

@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { NavOrdersSearch } from "@/components/NavOrdersSearch";
+import { NavAccount } from "@/components/NavAccount";
+import { Menu } from "lucide-react";
 
-/** Statements — document / invoice */
 function IconStatements() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -16,7 +17,6 @@ function IconStatements() {
   );
 }
 
-/** Dashboard — asymmetric tile layout (previous nav icon) */
 function IconDashboard() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -28,12 +28,12 @@ function IconDashboard() {
   );
 }
 
-/** Settings — classic gear (previous nav icon) */
-function IconSettings() {
+function IconHistory() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13a9 9 0 1 0 .55-3" />
+      <path d="M12 7v5l3 2" />
     </svg>
   );
 }
@@ -41,30 +41,63 @@ function IconSettings() {
 export function AppNav() {
   const pathname = usePathname();
 
-  const navIcon = (href: string, label: string, active: boolean, children: React.ReactNode) => (
-    <Link href={href} className={`nav-icon${active ? " active" : ""}`} aria-label={label}>
+  const navIcon = (
+    href: string,
+    label: string,
+    active: boolean,
+    children: React.ReactNode,
+    extraClass = "",
+  ) => (
+    <Link
+      href={href}
+      className={`nav-icon${active ? " active" : ""}${extraClass ? ` ${extraClass}` : ""}`}
+      aria-label={label}
+    >
       {children}
     </Link>
   );
 
+  const openDrawer = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("lgb:sidebar-open"));
+  };
+
+  const showSearch = pathname === "/";
+
   return (
     <header className="nav">
-      <Link href="/" className="nav-logo">
-        {/* eslint-disable-next-line @next/next/no-img-element -- public asset; avoids Image config issues */}
-        <img src="/lgb/nav-logo.png" alt="" width={40} height={40} className="nav-logo-img" />
-        <div className="nav-logo-text">
-          <span className="nav-logo-name">LABGROWNBOX</span>
-          <span className="nav-logo-tag">Lab Grown Diamonds · Now and Forever</span>
-        </div>
-      </Link>
-      {pathname === "/" ? (
-        <Suspense fallback={<div className="nav-search" style={{ opacity: 0.35 }} aria-hidden />}>
-          <NavOrdersSearch />
-        </Suspense>
-      ) : (
-        <div className="nav-search-spacer" aria-hidden />
-      )}
-      <div className="nav-right">
+      <div className="nav-start">
+        <button
+          type="button"
+          className="nav-mobile-toggle"
+          onClick={openDrawer}
+          aria-label="Open navigation"
+        >
+          <Menu size={20} />
+        </button>
+        <Link href="/" className="nav-logo" aria-label="LabGrownBox home" title="LabGrownBox">
+          {/* eslint-disable-next-line @next/next/no-img-element -- public asset; avoids Image config issues */}
+          <img
+            src="/lgb/nav-logo.png"
+            alt="LabGrownBox"
+            width={36}
+            height={36}
+            className="nav-logo-img"
+          />
+        </Link>
+      </div>
+
+      <div className="nav-center">
+        {showSearch ? (
+          <Suspense fallback={<div className="nav-search" style={{ opacity: 0.35 }} aria-hidden />}>
+            <NavOrdersSearch />
+          </Suspense>
+        ) : (
+          <div className="nav-search-spacer" aria-hidden />
+        )}
+      </div>
+
+      <div className="nav-end">
         {navIcon(
           "/statements",
           "Open statements",
@@ -76,19 +109,15 @@ export function AppNav() {
           "Open dashboard",
           pathname === "/dashboard" || pathname.startsWith("/dashboard/"),
           <IconDashboard />,
+          "nav-icon-dashboard",
         )}
         {navIcon(
-          "/settings",
-          "Open settings",
-          pathname === "/settings" || pathname.startsWith("/settings/"),
-          <IconSettings />,
+          "/history",
+          "Open history",
+          pathname === "/history" || pathname.startsWith("/history/"),
+          <IconHistory />,
         )}
-        <Link href="/orders/new" className="btn-new-nav">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          New Order
-        </Link>
+        <NavAccount />
       </div>
     </header>
   );

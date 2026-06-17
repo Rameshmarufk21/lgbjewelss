@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { heuristicInvoiceFromOcr } from "@/lib/extraction/heuristicFromOcr";
 import { ocrImageBuffer } from "@/lib/extraction/ocrTesseract";
+import { resolveApiKey } from "@/lib/apiKeys";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -936,8 +937,13 @@ async function layeredAiExtract(
   images: PreviewImage[],
   scanType: ScanType,
   effectiveKind: DocumentKind,
+  ocrText: string,
 ): Promise<{ result: Record<string, unknown> | null; layersUsed: string[]; errors: string[] }> {
-  const prompt = buildExtractionPrompt(effectiveKind, scanType, images.length);
+  const basePrompt = buildExtractionPrompt(effectiveKind, scanType, images.length);
+  // Give the model the raw OCR as a hint — improves accuracy, esp. on faint/handwritten text.
+  const prompt = ocrText.trim()
+    ? `${basePrompt}\n\nOCR TRANSCRIPTION (may contain errors — the IMAGE is the source of truth; use this only as a hint):\n"""${ocrText.slice(0, 1800)}"""`
+    : basePrompt;
   const layersUsed: string[] = [];
   const errors: string[] = [];
   let best: { raw: Record<string, unknown> | null; score: number; layer: string } = { raw: null, score: 0, layer: "" };
@@ -951,7 +957,7 @@ async function layeredAiExtract(
   // Layer 1: Gemini 2.0 Flash (fast default)
   if (geminiKey) {
     try {
-      const flashModel = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+      const flashModel = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
       const r = await geminiExtract(geminiKey, flashModel, images, prompt);
       layersUsed.push(`gemini:${flashModel}`);
       consider(`gemini:${flashModel}`, r);
@@ -997,9 +1003,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  /** AI keys: server env only — never accept client-supplied keys. */
-  const geminiApiKey = process.env.GEMINI_API_KEY?.trim() || "";
-  const groqApiKey = process.env.GROQ_API_KEY?.trim() || "";
+  /** AI keys: server-side store (Settings → AI keys) first, then env. Never client-supplied. */
+  const geminiApiKey = resolveApiKey("gemini");
+  const groqApiKey = resolveApiKey("groq");
 
   const images = normalizeImages(body);
   const scanType = normalizeScanType(body.scanType);
@@ -1045,7 +1051,7 @@ export async function POST(req: Request) {
     let aiErrors: string[] = [];
 
     if (geminiApiKey || groqApiKey) {
-      const ai = await layeredAiExtract(geminiApiKey, groqApiKey, images, scanType, effectiveKind);
+      const ai = await layeredAiExtract(geminiApiKey, groqApiKey, images, scanType, effectiveKind, ocrJoined);
       layersUsed = ai.layersUsed;
       aiErrors = ai.errors;
       if (ai.result && Object.keys(ai.result).length) {

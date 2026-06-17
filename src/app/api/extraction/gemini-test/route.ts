@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
+import { resolveApiKey } from "@/lib/apiKeys";
 
 export const dynamic = "force-dynamic";
 
-/** Minimal call to verify server `GEMINI_API_KEY` (never read keys from the request body). */
+/** Minimal call to verify the active Gemini key (Settings → AI keys, or env). */
 export async function POST() {
-  const apiKey = process.env.GEMINI_API_KEY?.trim() || "";
+  const apiKey = resolveApiKey("gemini");
   if (!apiKey) {
     return NextResponse.json(
-      { ok: false, error: "GEMINI_API_KEY is not set on the server (e.g. Vercel → Environment Variables)." },
+      { ok: false, error: "No Gemini key set. Add one in Settings → AI keys (or set GEMINI_API_KEY)." },
       { status: 400 },
     );
   }
