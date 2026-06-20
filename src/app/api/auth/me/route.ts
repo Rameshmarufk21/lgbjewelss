@@ -14,5 +14,5 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ ok: false, error: "Not signed in" }, { status: 401 });
   }
-  return NextResponse.json({ ok: true, userId: session.userId, role: getRole(session.userId) ?? "user" });
+  return NextResponse.json({ ok: true, userId: session.userId, role: (await getRole(session.userId)) ?? "user" });
 }

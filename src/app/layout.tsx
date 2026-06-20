@@ -1,20 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, DM_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import "@/styles/lgb.css";
 import { RegisterSw } from "@/components/RegisterSw";
 import { LayoutShell } from "@/components/LayoutShell";
 
-const lgbSerif = Cormorant_Garamond({
+// Stitch UI font — used for both body and display (no serif).
+const lgbSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-lgb-serif",
-  display: "swap",
-});
-
-const lgbSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-lgb-sans",
   display: "swap",
 });
@@ -49,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${lgbSerif.variable} ${lgbSans.variable} h-full antialiased`}>
+    <html lang="en" className={`${lgbSans.variable} h-full antialiased`}>
       <body className="min-h-full [text-size-adjust:100%]">
         <div className={`lgb-shell ${lgbSans.className}`}>
           <RegisterSw />

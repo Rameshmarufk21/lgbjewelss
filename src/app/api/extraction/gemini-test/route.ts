@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 /** Minimal call to verify the active Gemini key (Settings → AI keys, or env). */
 export async function POST() {
-  const apiKey = resolveApiKey("gemini");
+  const apiKey = await resolveApiKey("gemini");
   if (!apiKey) {
     return NextResponse.json(
       { ok: false, error: "No Gemini key set. Add one in Settings → AI keys (or set GEMINI_API_KEY)." },

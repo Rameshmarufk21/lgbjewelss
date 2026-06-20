@@ -1,91 +1,15 @@
 import "server-only";
-import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { mkdir, writeFile, readFile } from "fs/promises";
+import { put } from "@vercel/blob";
+import { prisma } from "@/lib/prisma";
+import type { ChatMessage } from "@prisma/client";
 
-/**
- * Server-side group chat store (text + photo + voice). Lives in .lgb-data/
- * (git-ignored, persistent FS required). Messages sync via polling; media is
- * stored as files and served through an auth-gated route.
- */
-const DATA_DIR = path.join(process.cwd(), ".lgb-data");
-const CHAT_FILE = path.join(DATA_DIR, "chat.json");
-const MEDIA_DIR = path.join(DATA_DIR, "chat-media");
-const MAX_MESSAGES = 2000;
-
+export type { ChatMessage };
 export type ChatKind = "text" | "image" | "audio";
-export type ChatMessage = {
-  seq: number;
-  id: string;
-  user: string;
-  kind: ChatKind;
-  text?: string;
-  mediaId?: string;
-  mediaMime?: string;
-  createdAt: string;
-};
 
-type ChatFile = { lastSeq: number; messages: ChatMessage[] };
-
-function ensureDir(): void {
-  try {
-    fs.mkdirSync(MEDIA_DIR, { recursive: true });
-  } catch {
-    /* ignore */
-  }
-}
-
-function read(): ChatFile {
-  try {
-    const j = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8")) as ChatFile;
-    if (j && Array.isArray(j.messages) && typeof j.lastSeq === "number") return j;
-  } catch {
-    /* ignore */
-  }
-  return { lastSeq: 0, messages: [] };
-}
-
-function write(d: ChatFile): void {
-  ensureDir();
-  fs.writeFileSync(CHAT_FILE, JSON.stringify(d));
-}
-
-export function addMessage(m: {
-  user: string;
-  kind: ChatKind;
-  text?: string;
-  mediaId?: string;
-  mediaMime?: string;
-}): ChatMessage {
-  const d = read();
-  const seq = d.lastSeq + 1;
-  const msg: ChatMessage = {
-    seq,
-    id: crypto.randomBytes(8).toString("hex"),
-    user: m.user,
-    kind: m.kind,
-    text: m.text ? m.text.slice(0, 4000) : undefined,
-    mediaId: m.mediaId,
-    mediaMime: m.mediaMime,
-    createdAt: new Date().toISOString(),
-  };
-  d.messages.push(msg);
-  if (d.messages.length > MAX_MESSAGES) d.messages = d.messages.slice(-MAX_MESSAGES);
-  d.lastSeq = seq;
-  write(d);
-  return msg;
-}
-
-export function lastSeq(): number {
-  return read().lastSeq;
-}
-
-/** Messages after `afterSeq`; when afterSeq<=0, returns the most recent `limit`. */
-export function getMessages(afterSeq: number, limit = 100): { messages: ChatMessage[]; lastSeq: number } {
-  const d = read();
-  const list = afterSeq > 0 ? d.messages.filter((m) => m.seq > afterSeq) : d.messages.slice(-limit);
-  return { messages: list, lastSeq: d.lastSeq };
-}
+const CHAT_UPLOADS = path.join(process.cwd(), "uploads", "chat");
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -101,28 +25,85 @@ const EXT_BY_MIME: Record<string, string> = {
   "audio/x-m4a": "m4a",
   "audio/wav": "wav",
 };
-
 export function extForMime(mime: string): string {
   return EXT_BY_MIME[mime.toLowerCase()] || (mime.startsWith("audio/") ? "webm" : "bin");
 }
 
-export function mimeForExt(ext: string): string {
-  const found = Object.entries(EXT_BY_MIME).find(([, e]) => e === ext.toLowerCase());
-  if (found) return found[0];
-  return "application/octet-stream";
+export async function addText(user: string, text: string): Promise<ChatMessage> {
+  return prisma.chatMessage.create({ data: { user, kind: "text", text: text.slice(0, 4000) } });
 }
 
-export function saveMedia(buf: Buffer, mime: string): string {
-  ensureDir();
-  const id = `${crypto.randomBytes(12).toString("hex")}.${extForMime(mime)}`;
-  fs.writeFileSync(path.join(MEDIA_DIR, id), buf, { mode: 0o600 });
-  return id;
+export async function addMedia(
+  user: string,
+  kind: "image" | "audio",
+  media: { mediaUrl: string | null; mediaPath: string | null; mediaMime: string; caption?: string },
+): Promise<ChatMessage> {
+  return prisma.chatMessage.create({
+    data: {
+      user,
+      kind,
+      text: media.caption ? media.caption.slice(0, 4000) : null,
+      mediaUrl: media.mediaUrl,
+      mediaPath: media.mediaPath,
+      mediaMime: media.mediaMime,
+    },
+  });
 }
 
-/** Resolve a media id to a path on disk — null if invalid or missing (no traversal). */
-export function mediaPath(id: string): string | null {
-  if (!/^[a-f0-9]{8,}\.[a-z0-9]{2,5}$/i.test(id)) return null;
-  const p = path.join(MEDIA_DIR, id);
-  if (!p.startsWith(MEDIA_DIR)) return null;
-  return fs.existsSync(p) ? p : null;
+export async function lastSeq(): Promise<number> {
+  const m = await prisma.chatMessage.findFirst({ orderBy: { seq: "desc" }, select: { seq: true } });
+  return m?.seq ?? 0;
+}
+
+export async function getMessages(afterSeq: number, limit = 100): Promise<{ messages: ChatMessage[]; lastSeq: number }> {
+  if (afterSeq > 0) {
+    const messages = await prisma.chatMessage.findMany({ where: { seq: { gt: afterSeq } }, orderBy: { seq: "asc" } });
+    return { messages, lastSeq: await lastSeq() };
+  }
+  const recent = await prisma.chatMessage.findMany({ orderBy: { seq: "desc" }, take: limit });
+  recent.reverse();
+  const last = recent.length ? recent[recent.length - 1].seq : 0;
+  return { messages: recent, lastSeq: last };
+}
+
+/** Store chat media on Vercel Blob (public) or local uploads/chat in dev. */
+export async function saveChatMedia(
+  buffer: Buffer,
+  mime: string,
+): Promise<{ mediaUrl: string | null; mediaPath: string | null }> {
+  const name = `${crypto.randomBytes(12).toString("hex")}.${extForMime(mime)}`;
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  if (process.env.NODE_ENV === "production" && !token) {
+    throw new Error("BLOB_READ_WRITE_TOKEN is required for chat media in production (Vercel Blob).");
+  }
+  if (token) {
+    const blob = await put(`chat/${name}`, buffer, { access: "public", token, contentType: mime });
+    return { mediaUrl: blob.url, mediaPath: null };
+  }
+  await mkdir(CHAT_UPLOADS, { recursive: true });
+  await writeFile(path.join(CHAT_UPLOADS, name), buffer);
+  return { mediaUrl: null, mediaPath: `chat/${name}` };
+}
+
+/** Read a locally-stored chat media file (dev fallback) by message id. */
+export async function readLocalMedia(messageId: string): Promise<{ buf: Buffer; mime: string } | null> {
+  const m = await prisma.chatMessage.findUnique({ where: { id: messageId } });
+  if (!m?.mediaPath) return null;
+  const rel = m.mediaPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (rel.includes("..")) return null;
+  try {
+    const buf = await readFile(path.join(process.cwd(), "uploads", ...rel.split("/")));
+    return { buf, mime: m.mediaMime || "application/octet-stream" };
+  } catch {
+    return null;
+  }
+}
+
+export async function getMessageById(id: string): Promise<ChatMessage | null> {
+  return prisma.chatMessage.findUnique({ where: { id } });
+}
+
+/** The URL the client should use: blob URL directly, else the local proxy route. */
+export function clientMediaUrl(m: ChatMessage): string | null {
+  return m.mediaUrl || (m.mediaPath ? `/api/chat/media/${m.id}` : null);
 }

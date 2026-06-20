@@ -1,28 +1,30 @@
 .lgb-shell {
-  --cream: #fdf6ec;
-  --cream2: #f5edd8;
-  --cream3: #ede0c8;
-  --peacock: #0d2b6e;
-  --peacock2: #123472;
-  --peacock3: #2a63c6;
-  --peacock-lt: #e7eefb;
-  --peacock-xl: #f3f7ff;
-  --gold: #b8963e;
-  --gold2: #d4af5a;
-  --danger: #c0392b;
+  /* Stitch re-skin: light/airy surfaces, black primary, emerald accent, soft shadows, big curves.
+     Token names (cream, peacock, gold) are kept so the whole app re-themes without structural changes. */
+  --cream: #f8f9fa; /* app background */
+  --cream2: #ffffff; /* cards / inputs */
+  --cream3: #eef0f1; /* hover fills / chips */
+  --peacock: #1b1b1b; /* primary surface: sidebar/nav/buttons */
+  --peacock2: #000000; /* deepest / headings */
+  --peacock3: #3a3a3a; /* hover */
+  --peacock-lt: #eef0f1; /* tints */
+  --peacock-xl: #f5f6f7;
+  --gold: #416656; /* accent (emerald) */
+  --gold2: #5a8a74;
+  --danger: #ba1a1a;
   --success: #1a6b3c;
-  --text: #1c1a16;
-  --text2: #4a4438;
-  --text3: #9a8f7a;
-  --border: #ddd5c4;
-  --border2: #cec4b0;
-  --shadow: 0 2px 8px rgba(23, 64, 139, 0.08), 0 1px 3px rgba(23, 64, 139, 0.06);
-  --shadow-md: 0 4px 20px rgba(23, 64, 139, 0.14), 0 2px 6px rgba(23, 64, 139, 0.08);
-  --shadow-lg: 0 8px 40px rgba(23, 64, 139, 0.18), 0 4px 12px rgba(23, 64, 139, 0.1);
-  --radius: 14px;
-  --radius-sm: 8px;
-  --serif: var(--font-lgb-serif), "Cormorant Garamond", Georgia, serif;
-  --sans: var(--font-lgb-sans), "DM Sans", system-ui, sans-serif;
+  --text: #191c1d;
+  --text2: #4c4546;
+  --text3: #7e7576;
+  --border: #e3e5e6;
+  --border2: #cfc4c5;
+  --shadow: 0 4px 16px -6px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 14px 30px -10px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.1);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --serif: var(--font-lgb-sans), "Plus Jakarta Sans", system-ui, sans-serif;
+  --sans: var(--font-lgb-sans), "Plus Jakarta Sans", system-ui, sans-serif;
   font-family: var(--sans);
   background: var(--cream);
   color: var(--text);
@@ -466,7 +468,7 @@
 /* ───────────────────────────── Sidebar ────────────────────────────────── */
 .lgb-shell .lgb-sidebar {
   width: var(--lgb-sidebar-w);
-  background: linear-gradient(180deg, #0f316e 0%, var(--peacock) 42%, #0a235a 100%);
+  background: var(--peacock);
   border-right: 1px solid rgba(0, 0, 0, 0.22);
   display: flex;
   flex-direction: column;

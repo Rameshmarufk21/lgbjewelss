@@ -16,6 +16,8 @@ import { NextResponse } from "next/server";
 import { heuristicInvoiceFromOcr } from "@/lib/extraction/heuristicFromOcr";
 import { ocrImageBuffer } from "@/lib/extraction/ocrTesseract";
 import { resolveApiKey } from "@/lib/apiKeys";
+import { referenceSpecFor } from "@/lib/extraction/referenceSpecs";
+import { parseMtaInvoice, parseCadSpec } from "@/lib/extraction/deterministicParsers";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -797,6 +799,17 @@ Return ONE JSON object:
 Output ONLY JSON.`;
   }
 
+  if (effectiveKind === "memo" || scanType === "memo") {
+    return `You are reading a handwritten LabGrownBox stone APPROVAL MEMO. ${multi}
+We only need the stone size→weight rows (and a setter cost if written). Return ONE JSON object:
+{ "documentKind": "memo",
+  "styleCode": "SFR-... if written at top, else null",
+  "setterCost": number_or_null,
+  "totalPcs": number, "totalCarat": number,
+  "stones": [ { "shape": "Round (RND)|...", "sizeMm": "3", "pcs": 1, "caratTotal": 0.098 } ] }
+If a value is unreadable use null — NEVER guess. Output ONLY JSON.`;
+  }
+
   // Generic / unknown invoice — best-effort extraction
   return `You extract data from a jewelry invoice for LabGrownBox. ${multi}
 Return ONE JSON object. Include castVendor, castInvoice, castDate, castTotal, castDWT, castGrams, castPrint, styleCode, productType, metal, size, placedBy, status, notes.
@@ -898,6 +911,9 @@ async function groqExtract(
 function scoreExtraction(x: Record<string, unknown> | null, kind: DocumentKind): number {
   if (!x) return 0;
   let s = 0;
+  // Stone-bearing docs (CAD spec / memo) score on the stones array.
+  const stones = Array.isArray(x.stones) ? x.stones : [];
+  if ((kind === "memo" || kind === "cad_spec") && stones.length) s += 3 + Math.min(stones.length, 4);
   if (typeof x.castVendor === "string" || typeof x.setter === "string") s += 1;
   if (typeof x.castInvoice === "string" || typeof x.setInvoice === "string") s += 1;
   if (typeof x.castTotal === "number" || typeof x.setTotal === "number") s += 1;
@@ -940,16 +956,22 @@ async function layeredAiExtract(
   ocrText: string,
 ): Promise<{ result: Record<string, unknown> | null; layersUsed: string[]; errors: string[] }> {
   const basePrompt = buildExtractionPrompt(effectiveKind, scanType, images.length);
+  // Inject the editable reference spec (few-shot example + strict rules) for this doc type.
+  const ref = referenceSpecFor(effectiveKind);
+  let prompt = ref ? `${basePrompt}\n${ref}` : basePrompt;
   // Give the model the raw OCR as a hint — improves accuracy, esp. on faint/handwritten text.
-  const prompt = ocrText.trim()
-    ? `${basePrompt}\n\nOCR TRANSCRIPTION (may contain errors — the IMAGE is the source of truth; use this only as a hint):\n"""${ocrText.slice(0, 1800)}"""`
-    : basePrompt;
+  if (ocrText.trim()) {
+    prompt += `\n\nOCR TRANSCRIPTION (may contain errors — the IMAGE is the source of truth; use this only as a hint):\n"""${ocrText.slice(0, 1800)}"""`;
+  }
   const layersUsed: string[] = [];
   const errors: string[] = [];
   let best: { raw: Record<string, unknown> | null; score: number; layer: string } = { raw: null, score: 0, layer: "" };
 
+  // CAD specs and stone memos keep their own shape (stones[]) — skip invoice normalization.
+  const passthrough =
+    scanType === "spec" || scanType === "memo" || effectiveKind === "cad_spec" || effectiveKind === "memo";
   const consider = (layer: string, raw: Record<string, unknown> | null) => {
-    const normalized = raw ? (scanType === "spec" || effectiveKind === "cad_spec" ? raw : normalizeGeminiOrderPayload(raw)) : null;
+    const normalized = raw ? (passthrough ? raw : normalizeGeminiOrderPayload(raw)) : null;
     const sc = scoreExtraction(normalized, effectiveKind);
     if (sc > best.score) best = { raw: normalized, score: sc, layer };
   };
@@ -1004,46 +1026,45 @@ export async function POST(req: Request) {
   }
 
   /** AI keys: server-side store (Settings → AI keys) first, then env. Never client-supplied. */
-  const geminiApiKey = resolveApiKey("gemini");
-  const groqApiKey = resolveApiKey("groq");
+  const geminiApiKey = await resolveApiKey("gemini");
+  const groqApiKey = await resolveApiKey("groq");
 
   const images = normalizeImages(body);
   const scanType = normalizeScanType(body.scanType);
 
   if (!images.length) return NextResponse.json({ error: "imageData required" }, { status: 400 });
-  if (scanType === "memo") {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "Memo OCR is disabled. Upload memo photos as references and enter stone details in the structured form.",
-      },
-      { status: 400 },
-    );
-  }
 
   try {
-    let ocrMerged: Record<string, unknown> = {};
     let ocrJoined = "";
     for (const img of images) {
       const buf = Buffer.from(img.imageData, "base64");
-      const ocrText = await ocrImageBuffer(buf);
-      ocrJoined += `\n${ocrText}`;
-
-      const ocrExtracted =
-        scanType === "spec"
-          ? parseSpecFromOcr(ocrText)
-          : fromInvoiceLike(heuristicInvoiceFromOcr(ocrText) as Record<string, unknown>, scanType);
-
-      ocrMerged = mergeExtracted(ocrMerged, ocrExtracted);
+      ocrJoined += `\n${await ocrImageBuffer(buf)}`;
     }
 
-    // Classify the document BEFORE asking the model, so we can send a
-    // specialized prompt (MTA vs Carat vs MC vs CAD vs findings) and later
-    // suppress line_items for CAD spec images.
+    // Classify first so we can pick the right deterministic parser / AI prompt.
     const heuristicKind = classifyDocumentFromText(ocrJoined);
     const effectiveKind: DocumentKind =
-      scanType === "spec" ? "cad_spec" : heuristicKind === "unknown" ? (scanType === "setting" ? "other_setting" : "invoice_generic") : heuristicKind;
+      scanType === "spec"
+        ? "cad_spec"
+        : scanType === "memo"
+          ? "memo"
+          : heuristicKind === "unknown"
+            ? (scanType === "setting" ? "other_setting" : "invoice_generic")
+            : heuristicKind;
+
+    // No-AI base extraction: strong deterministic parsers for the printed fixed-format
+    // docs (MTA invoice, CAD spec). Handwritten memos need AI/manual. Everything else
+    // falls back to the generic invoice heuristic.
+    let ocrMerged: Record<string, unknown>;
+    if (effectiveKind === "mta_casting") {
+      ocrMerged = parseMtaInvoice(ocrJoined);
+    } else if (effectiveKind === "cad_spec" || scanType === "spec") {
+      ocrMerged = parseCadSpec(ocrJoined);
+    } else if (effectiveKind === "memo" || scanType === "memo") {
+      ocrMerged = {};
+    } else {
+      ocrMerged = fromInvoiceLike(heuristicInvoiceFromOcr(ocrJoined) as Record<string, unknown>, scanType);
+    }
 
     let extracted = { ...ocrMerged };
     let visionUsed: "ai" | "none" = "none";
@@ -1071,14 +1092,27 @@ export async function POST(req: Request) {
       scrubCadSpec(extracted, ocrJoined);
     }
 
-    if (scanType !== "spec") {
-      deriveCastPrintFromLineItems(extracted);
-      deriveCastWeightsFromLineItems(extracted);
+    if (effectiveKind === "memo" || scanType === "memo") {
+      // Stone memo → map the AI summary into the order's stone fields (keep stones[] for the memo page).
+      delete extracted.line_items;
+      const tc = extracted.totalCarat;
+      const tp = extracted.totalPcs;
+      if (typeof tc === "number" && Number.isFinite(tc)) extracted.stoneCt = String(tc);
+      if (typeof tp === "number" && Number.isFinite(tp)) extracted.stonePcs = String(tp);
+      if (typeof extracted.setterCost === "number" && Number.isFinite(extracted.setterCost)) {
+        extracted.setTotal = String(extracted.setterCost);
+      }
+    } else {
+      // Invoice / setting post-processing (not for CAD specs or memos).
+      if (scanType !== "spec") {
+        deriveCastPrintFromLineItems(extracted);
+        deriveCastWeightsFromLineItems(extracted);
+      }
+      enrichExtractedFromJoinedOcr(ocrJoined, scanType, extracted);
+      if (scanType !== "spec") backfillWeightsAndMetalFromLineItems(extracted);
+      normalizeExtractedForOrderForm(extracted);
+      alignStyleAndNotes(extracted);
     }
-    enrichExtractedFromJoinedOcr(ocrJoined, scanType, extracted);
-    if (scanType !== "spec") backfillWeightsAndMetalFromLineItems(extracted);
-    normalizeExtractedForOrderForm(extracted);
-    alignStyleAndNotes(extracted);
 
     // Surface the detected document kind so the UI can label it ("CAD spec" vs "Invoice").
     if (!extracted.documentKind) extracted.documentKind = effectiveKind;

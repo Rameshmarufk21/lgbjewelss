@@ -22,7 +22,7 @@ export async function GET() {
   if (denied) return denied;
   const keys: Record<string, { set: boolean; source: string }> = {};
   for (const s of SERVICES) {
-    const source = apiKeySource(s);
+    const source = await apiKeySource(s);
     keys[s] = { set: source !== "none", source };
   }
   return NextResponse.json({ ok: true, keys });
@@ -42,11 +42,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown service" }, { status: 400 });
   }
   const value = typeof body.value === "string" ? body.value : "";
-  setStoredKey(service, value); // empty value clears the stored key
+  await setStoredKey(service, value); // empty value clears the stored key
   return NextResponse.json({
     ok: true,
     service,
     set: value.trim().length > 0,
-    source: apiKeySource(service),
+    source: await apiKeySource(service),
   });
 }

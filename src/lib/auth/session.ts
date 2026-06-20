@@ -40,9 +40,9 @@ export function verifySessionToken(token: string | undefined | null): { userId: 
   }
 }
 
-export function checkCredentials(userId: string, password: string): boolean {
+export async function checkCredentials(userId: string, password: string): Promise<boolean> {
   if (!isAuthEnabled()) return false;
-  return verifyUser(userId, password) !== null;
+  return (await verifyUser(userId, password)) !== null;
 }
 
 /** Read the signed-in user (and role) from the session cookie — for route handlers. */
@@ -51,7 +51,7 @@ export async function currentUser(): Promise<{ userId: string; role: Role } | nu
   const token = store.get(SESSION_COOKIE)?.value;
   const session = verifySessionToken(token);
   if (!session) return null;
-  const role = getRole(session.userId) ?? "user";
+  const role = (await getRole(session.userId)) ?? "user";
   return { userId: session.userId, role };
 }
 
