@@ -9,6 +9,36 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ─── Auth, AI keys & team chat (DB-backed so they work on serverless) ───
+
+model AppUser {
+  id            String   @id @default(cuid())
+  username      String // display name (original case)
+  usernameLower String   @unique // lookup / uniqueness key
+  role          String   @default("user") // 'admin' | 'user'
+  salt          String
+  hash          String
+  createdAt     DateTime @default(now())
+}
+
+model AppApiKey {
+  service   String   @id // 'gemini' | 'groq'
+  value     String // AES-encrypted when ENCRYPTION_SECRET is set, else plaintext (DB-protected)
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  seq       Int      @id @default(autoincrement()) // polling cursor
+  id        String   @unique @default(cuid())
+  user      String // author username
+  kind      String // 'text' | 'image' | 'audio'
+  text      String?
+  mediaUrl  String? // public blob URL (Vercel Blob)
+  mediaPath String? // local uploads-relative path (when no blob)
+  mediaMime String?
+  createdAt DateTime @default(now())
+}
+
 model Maker {
   id        String    @id @default(cuid())
   name      String    @unique

@@ -6,7 +6,7 @@
 <title>LABGROWNBOX · Memo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
 <style>
   /* Print page setup — Letter portrait, no browser margins so the gold frame
      reaches the paper edge. The browser print dialog still lets the user pick
@@ -15,17 +15,17 @@
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   :root{
-    --cream:#FDF6EC;--cream2:#F5EDD8;
-    --peacock:#0d2b6e;--peacock2:#0a235a;
-    --gold:#B8963E;--gold2:#D4AF5A;
-    --text:#1C1A16;--text2:#4A4438;--text3:#9A8F7A;
+    --cream:#f8f9fa;--cream2:#ffffff;
+    --peacock:#1b1b1b;--peacock2:#000000;
+    --gold:#416656;--gold2:#5a8a74;
+    --text:#191c1d;--text2:#4c4546;--text3:#7e7576;
   }
-  body{font-family:'Cormorant Garamond','EB Garamond','Times New Roman',Georgia,serif;background:var(--cream);color:var(--text);min-height:100vh}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--cream);color:var(--text);min-height:100vh}
 
   /* Toolbar — sticky, hidden when printing or saving as PDF */
   .toolbar{position:sticky;top:0;z-index:50;background:rgba(253,246,236,.92);backdrop-filter:saturate(140%) blur(6px);-webkit-backdrop-filter:saturate(140%) blur(6px);border-bottom:1px solid rgba(184,150,62,.4);display:flex;align-items:center;gap:10px;padding:10px 20px}
   .toolbar .spacer{flex:1}
-  .toolbar h1{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--peacock);margin:0;display:flex;align-items:center;gap:10px}
+  .toolbar h1{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:1rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--peacock);margin:0;display:flex;align-items:center;gap:10px}
   /* Toolbar wordmark — same provided brand asset as sheet header. */
   .toolbar h1 .tb-logo{height:22px;flex-shrink:0;display:inline-flex;align-items:center}
   .toolbar h1 .tb-logo .brand-mark{
@@ -35,12 +35,12 @@
     -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
     -webkit-mask-position:center;mask-position:center;
   }
-  .toolbar .doc{font-family:'DM Sans',sans-serif;font-size:.72rem;color:var(--text2);letter-spacing:.06em;margin-left:8px}
-  .tb-btn{font-family:'DM Sans',sans-serif;font-size:.78rem;letter-spacing:.06em;padding:8px 14px;border:1px solid var(--peacock);background:var(--peacock);color:#fff;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;line-height:1}
+  .toolbar .doc{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:.72rem;color:var(--text2);letter-spacing:.06em;margin-left:8px}
+  .tb-btn{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:.78rem;letter-spacing:.06em;padding:8px 14px;border:1px solid var(--peacock);background:var(--peacock);color:#fff;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;line-height:1}
   .tb-btn:hover{filter:brightness(1.07)}
   .tb-btn.ghost{background:transparent;color:var(--peacock)}
   .tb-btn svg{width:13px;height:13px}
-  .tb-hint{font-family:'DM Sans',sans-serif;font-size:.7rem;color:var(--text3)}
+  .tb-hint{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:.7rem;color:var(--text3)}
 
   /* Stage holds the sheet — light bg outside the paper while editing */
   .stage{padding:22px 14px}
@@ -78,18 +78,18 @@
   }
   /* Per-company letterhead (name/address driven by the company registry). */
   .word.company-word{flex-direction:column;align-items:flex-start;gap:1px;line-height:1.05}
-  .company-name{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:26px;letter-spacing:.02em;color:var(--brand,var(--peacock))}
+  .company-name{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:26px;letter-spacing:.02em;color:var(--brand,var(--peacock))}
   .company-tag{font-size:7.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
   .company-addr{font-size:8px;color:var(--text);opacity:.72;line-height:1.3;margin-top:2px}
   .meta{text-align:right;display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:end}
-  .meta .lbl{font-family:'Cormorant Garamond',serif;font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
-  .meta .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:12.5px;color:var(--text);font-weight:500;min-height:14px}
+  .meta .lbl{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:8.5px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+  .meta .v{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:12.5px;color:var(--text);font-weight:500;min-height:14px}
 
   .id-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-bottom:1px solid var(--gold)}
   .id-cell{padding:12px 14px 14px;border-right:1px solid rgba(184,150,62,.4);min-height:50px}
   .id-cell:last-child{border-right:none}
   .id-lbl{font-size:8.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
-  .id-val{font-family:'Cormorant Garamond',Georgia,serif;font-size:14px;color:var(--text);font-weight:500;min-height:18px}
+  .id-val{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:14px;color:var(--text);font-weight:500;min-height:18px}
   .id-val.mono{letter-spacing:.04em}
 
   .body{flex:1;min-height:0;display:grid;grid-template-columns:2in 1fr;gap:16px;padding:10px 0 0}
@@ -101,17 +101,17 @@
 
   .right{display:flex;flex-direction:column;gap:12px;min-height:0}
   .lined{display:flex;flex-direction:column}
-  .lined .row{display:grid;grid-template-columns:1.3fr 1fr .7fr .5fr .7fr;gap:10px;padding:7px 2px 5px;border-bottom:1px solid rgba(184,150,62,.4);font-family:'Cormorant Garamond',Georgia,serif;font-size:12.5px;align-items:end;min-height:26px}
+  .lined .row{display:grid;grid-template-columns:1.3fr 1fr .7fr .5fr .7fr;gap:10px;padding:7px 2px 5px;border-bottom:1px solid rgba(184,150,62,.4);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:12.5px;align-items:end;min-height:26px}
   .lined .row.blank > span{color:transparent}
-  .lined .row.head{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--gold);padding-bottom:4px;min-height:0;font-family:'DM Sans',sans-serif;font-weight:600}
+  .lined .row.head{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--gold);padding-bottom:4px;min-height:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:600}
   .lined .row .num{text-align:right;font-variant-numeric:tabular-nums}
   .lined .row .ct-blank{display:inline-block;min-width:56px;height:12px;border-bottom:1px solid var(--gold)}
   .stones-foot{display:flex;justify-content:flex-end;gap:18px;margin-top:6px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
-  .stones-foot .v{color:var(--text);font-family:'Cormorant Garamond',serif;font-size:12px;letter-spacing:.03em}
+  .stones-foot .v{color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:12px;letter-spacing:.03em}
 
   .notes-area{flex:1;min-height:0;display:flex;flex-direction:column}
   .notes-lines{flex:1;background-image:linear-gradient(to bottom,transparent calc(100% - 1px),rgba(184,150,62,.4) calc(100% - 1px));background-size:100% 22px;background-repeat:repeat-y;background-position:0 0;min-height:62px;padding-top:1px}
-  .notes-text{font-family:'Cormorant Garamond',Georgia,serif;font-size:12.5px;line-height:22px;color:var(--text);font-style:italic;margin:0}
+  .notes-text{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:12.5px;line-height:22px;color:var(--text);font-style:italic;margin:0}
 
   /* Footer — no top border. The gold rule above the Received & Accepted By
      row was being clipped by the page edge on the second half, so we drop it. */
@@ -124,8 +124,8 @@
   .cut .dash{flex:1;border-top:1px dashed var(--gold);height:0}
   .cut svg{width:16px;height:16px;flex-shrink:0}
 
-  .empty-state{max-width:520px;margin:80px auto;padding:32px;text-align:center;font-family:'DM Sans',sans-serif;color:var(--text2)}
-  .empty-state h2{font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--peacock);margin:0 0 10px;letter-spacing:.05em}
+  .empty-state{max-width:520px;margin:80px auto;padding:32px;text-align:center;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--text2)}
+  .empty-state h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:1.6rem;color:var(--peacock);margin:0 0 10px;letter-spacing:.05em}
   .empty-state p{font-size:.92rem;line-height:1.6}
   .empty-state a{color:var(--peacock);font-weight:600}
 
