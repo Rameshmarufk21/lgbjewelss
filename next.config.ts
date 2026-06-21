@@ -49,6 +49,11 @@ const nextConfig: NextConfig = {
       "public/orders-app/assets/**",
     ],
   },
+  // eng.traineddata isn't `require`d/imported, so Next's automatic bundling won't
+  // detect it — force-include it for every route that can run OCR (see ocrTesseract.ts).
+  outputFileTracingIncludes: {
+    "app/api/extraction/**": ["./eng.traineddata"],
+  },
 };
 
 export default nextConfig;
