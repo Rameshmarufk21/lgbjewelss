@@ -37,6 +37,17 @@ function slug(name: string): string {
   return name.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "company";
 }
 
+/** Export ONE company's orders to its own Excel file. */
+export async function exportCompanyExcel(companyId: string, companyName: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  const raw = window.localStorage.getItem("lgb_orders");
+  const all = (raw ? (JSON.parse(raw) as unknown[]) : []) as AnyOrder[];
+  const items = all.filter((o) => (o.company || "lgb") === companyId);
+  const date = new Date().toISOString().slice(0, 10);
+  const blob = await fetchWorkbookBlob(items);
+  triggerDownload(blob, `${slug(companyName)}-orders-${date}.xlsx`);
+}
+
 /**
  * Export orders to Excel — one workbook PER company (LabGrownBox split into two
  * businesses). Each company's orders download as a separate .xlsx file.

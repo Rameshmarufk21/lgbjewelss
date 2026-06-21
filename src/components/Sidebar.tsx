@@ -56,7 +56,7 @@ const sections: NavSection[] = [
       { icon: FileBarChart2, label: "Reports", href: "/reports" },
       { icon: Wrench, label: "Fixing", disabled: true },
       { icon: History, label: "History", href: "/history" },
-      { icon: Download, label: "Export", exportExcel: true },
+      { icon: Download, label: "Export", href: "/export" },
       { icon: Settings, label: "Settings", href: "/settings" },
     ],
   },

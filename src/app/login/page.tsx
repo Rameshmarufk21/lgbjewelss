@@ -40,13 +40,15 @@ function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={onSubmit}>
-      <div className="login-brand">
-        {/* eslint-disable-next-line @next/next/no-img-element -- public asset; avoids Image config issues */}
-        <img src="/lgb/nav-logo.png" alt="LabGrownBox" width={48} height={48} />
-        <span className="login-brand-name">LabGrownBox</span>
-      </div>
+      <span className="login-mark" aria-hidden>
+        <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round">
+          <path d="M20 38 L50 12 L80 38 L50 92 Z" />
+          <path d="M20 38 H80" />
+          <path d="M35 38 L50 12 L65 38" />
+          <path d="M35 38 L50 92 M65 38 L50 92" />
+        </svg>
+      </span>
       <h1 className="login-title">Welcome back</h1>
-      <p className="login-sub">Sign in to your internal operations workspace.</p>
       <label className="login-field">
         <span>Username</span>
         <input

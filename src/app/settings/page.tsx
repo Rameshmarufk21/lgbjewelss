@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExcelImportButton } from "@/components/ExcelImportButton";
 import { loadCompanies, saveCompanies, type Company } from "@/lib/companies";
 
 export default function SettingsPage() {
@@ -16,6 +15,31 @@ export default function SettingsPage() {
   const [groqKeyInput, setGroqKeyInput] = useState("");
   const [keyMsg, setKeyMsg] = useState("");
   const [role, setRole] = useState<string>("user");
+  const [curPw, setCurPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+
+  async function changeMyPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwMsg("Saving…");
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setPwMsg(data.error || "Could not change password");
+        return;
+      }
+      setPwMsg("Password changed ✓");
+      setCurPw("");
+      setNewPw("");
+    } catch {
+      setPwMsg("Could not reach server");
+    }
+  }
   const [users, setUsers] = useState<{ username: string; role: string; createdAt: string }[]>([]);
   const [nu, setNu] = useState<{ username: string; password: string; role: string }>({ username: "", password: "", role: "user" });
   const [userMsg, setUserMsg] = useState("");
@@ -189,15 +213,6 @@ export default function SettingsPage() {
       );
   }
 
-  async function exportExcel() {
-    try {
-      const { exportOrdersExcel } = await import("@/lib/client/exportOrdersExcel");
-      await exportOrdersExcel();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Export failed");
-    }
-  }
-
   async function addMaker(e: React.FormEvent) {
     e.preventDefault();
     const res = await fetch("/api/makers", {
@@ -227,10 +242,25 @@ export default function SettingsPage() {
     <div className="lgb-page-stack mx-auto max-w-2xl">
       <div className="lgb-page-hd-block">
         <h1 className="page-title">Settings</h1>
-        <p className="page-sub">
-          Makers appear as a dropdown on each order. Version is read from <code>package.json</code>.
-        </p>
       </div>
+
+      <section className="lgb-section">
+        <h2>My account{role ? ` · ${role}` : ""}</h2>
+        <form className="mt-3 fg2" onSubmit={changeMyPassword}>
+          <label className="payment-field">
+            <span>Current password</span>
+            <input className="fc" type="password" value={curPw} onChange={(e) => setCurPw(e.target.value)} autoComplete="current-password" required />
+          </label>
+          <label className="payment-field">
+            <span>New password</span>
+            <input className="fc" type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} autoComplete="new-password" minLength={6} required />
+          </label>
+          <div className="mt-3 flex items-center gap-3" style={{ gridColumn: "1 / -1" }}>
+            <button type="submit" className="btn btn-p" disabled={!curPw || newPw.length < 6}>Change password</button>
+            {pwMsg ? <span className="text-xs text-[var(--text2)]">{pwMsg}</span> : null}
+          </div>
+        </form>
+      </section>
 
       <section className="lgb-section">
         <h2>Companies</h2>
@@ -300,28 +330,6 @@ export default function SettingsPage() {
             Save companies
           </button>
           {companiesSaved ? <span className="text-xs" style={{ color: "var(--success)" }}>Saved ✓</span> : null}
-        </div>
-      </section>
-
-      <section className="lgb-section">
-        <h2>Excel workbook</h2>
-        <p className="mt-1 text-xs lgb-muted">
-          Export matches your conditional formatting rules for payments. Import runs a diff preview before merge.
-        </p>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <button
-            type="button"
-            onClick={() => void exportExcel()}
-            className="btn btn-p inline-flex items-center gap-2 no-underline"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Export Excel
-          </button>
-          <ExcelImportButton variant="settings" />
         </div>
       </section>
 
@@ -494,15 +502,6 @@ export default function SettingsPage() {
         </section>
       ) : null}
 
-      <section className="lgb-section text-sm lgb-muted">
-        <h2>Image extraction</h2>
-        <p className="mt-2 text-[var(--text2)]">
-          <strong className="text-[var(--text)]">Printed invoices</strong>: optional Gemini vision when{" "}
-          <code className="font-mono">GEMINI_API_KEY</code> is set on the server, plus Tesseract OCR — always review
-          before commit. <strong className="text-[var(--text)]">Memos</strong>: no OCR — upload photos as references and
-          use the structured stone form on each order.
-        </p>
-      </section>
     </div>
   );
 }
