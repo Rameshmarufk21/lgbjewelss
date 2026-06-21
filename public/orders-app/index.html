@@ -174,6 +174,7 @@ input,select,textarea{font-family:var(--sans);outline:none}
 .lv{font-size:.83rem;font-weight:700;color:var(--peacock)}
 
 .empty{grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--text3)}
+.empty-mark{width:48px;height:42px;margin:0 auto 10px;background:currentColor;-webkit-mask-image:url("assets/diamond-icon.png");mask-image:url("assets/diamond-icon.png");-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;opacity:.35}
 .empty svg{width:48px;height:48px;margin-bottom:10px;opacity:.2}
 .empty p{font-family:var(--serif);font-size:1.1rem}
 
@@ -488,7 +489,7 @@ textarea.fc{resize:vertical;min-height:68px}
 
 <script>
 let orders=JSON.parse(localStorage.getItem('lgb_orders')||'[]');
-let view='grid',tab='All',scanType='casting',editId=null,pendingScanImageDataUrl=null,pendingExtraction=null;
+let view='grid',tab='All',scanType='casting',editId=null,pendingScanImageDataUrl=null,pendingCardImageUrl=null,pendingExtraction=null;
 const STATUSES=['All','Inquiry','Casting','At Setter','Hold','Blocked','Completed','Errors'];
 const STEPS=['Inquiry','Casting','At Setter','Completed'];
 const BADGE={Inquiry:'b-inquiry',Casting:'b-casting','At Setter':'b-setter',Hold:'b-hold',Blocked:'b-blocked',Completed:'b-completed'};
@@ -770,8 +771,8 @@ function renderOrders(){
   });
   c.innerHTML=html;
 }
-function emptyHTML(){return`<div class="empty"><svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M20 38 L50 12 L80 38 L50 92 Z"/><path d="M20 38 H80"/><path d="M35 38 L50 12 L65 38"/><path d="M35 38 L50 92 M65 38 L50 92"/></svg><p>No orders found</p></div>`;}
-function cardHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'',img=o.imageUrl?`<img class="card-photo" src="${o.imageUrl}" alt="${(o.styleCode||'order image').replace(/"/g,'&quot;')}">`:`<div class="card-placeholder"><img src="assets/card-diamond.png" alt="LabGrownBox logo"><span>${o.productType||'Item'}</span></div>`;return`<div class="order-card${ec}" onclick="openDetail('${o.id}')"><div class="card-img">${img}<span class="badge ${b}">${o.status}</span><button class="card-del" title="Delete order" onclick="event.stopPropagation();deleteOrder('${o.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div><div class="card-body"><span class="card-date">${fmtD(o.createdAt)}</span><div class="card-name">${o.productType||'—'}${o.metal?' · '+o.metal:''}</div><div class="card-code">${o.styleCode||'—'}</div><div class="card-by"><div class="dot ${dc}">${ini(o.placedBy)}</div>${o.placedBy||'Unknown'}</div></div><div class="card-foot"><span class="card-vendor">${o.castVendor||o.setter||'—'}</span><span class="card-cost ${cost?'':'nc'}">${cost?fmt$(cost):'No cost yet'}</span></div></div>`;}
+function emptyHTML(){return`<div class="empty"><span class="empty-mark" aria-hidden></span><p>No orders found</p></div>`;}
+function cardHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'',img=(o.cardImageUrl||o.imageUrl)?`<img class="card-photo" src="${o.cardImageUrl||o.imageUrl}" alt="${(o.styleCode||'order image').replace(/"/g,'&quot;')}">`:`<div class="card-placeholder"><img src="assets/card-diamond.png" alt="LabGrownBox logo"><span>${o.productType||'Item'}</span></div>`;return`<div class="order-card${ec}" onclick="openDetail('${o.id}')"><div class="card-img">${img}<span class="badge ${b}">${o.status}</span><button class="card-del" title="Delete order" onclick="event.stopPropagation();deleteOrder('${o.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div><div class="card-body"><span class="card-date">${fmtD(o.createdAt)}</span><div class="card-name">${o.productType||'—'}${o.metal?' · '+o.metal:''}</div><div class="card-code">${o.styleCode||'—'}</div><div class="card-by"><div class="dot ${dc}">${ini(o.placedBy)}</div>${o.placedBy||'Unknown'}</div></div><div class="card-foot"><span class="card-vendor">${o.castVendor||o.setter||'—'}</span><span class="card-cost ${cost?'':'nc'}">${cost?fmt$(cost):'No cost yet'}</span></div></div>`;}
 function listHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'';return`<div class="list-row${ec}" onclick="openDetail('${o.id}')"><div><div class="ln">${o.productType||'—'} · ${o.styleCode}</div><div class="ls">${o.id} · <span style="display:inline-flex;align-items:center;gap:3px"><span class="dot ${dc}" style="width:15px;height:15px;font-size:.58rem">${ini(o.placedBy)}</span>${o.placedBy||'—'}</span></div></div><div><span class="list-badge ${b}">${o.status}</span></div><div class="lc">${o.castVendor||'—'}</div><div class="lc">${o.setter||'—'}</div><div class="lv">${cost?fmt$(cost):'—'}</div><div class="lc">${fmtD(o.createdAt)}</div></div>`;}
 
 function escHtml(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -931,7 +932,7 @@ function onCompanyChange(){
   const cur=$$('f_placedBy')?$$('f_placedBy').value:'';
   populatePlacedBy(c, placersFor(c).includes(cur)?cur:'');
 }
-function clearForm(){populateCompanySelect();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});const cc=$$('f_company');if(cc)cc.value=activeCompany;populatePlacedBy(activeCompany,'');$$('xList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';}
+function clearForm(){populateCompanySelect();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});const cc=$$('f_company');if(cc)cc.value=activeCompany;populatePlacedBy(activeCompany,'');$$('xList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingCardImageUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';}
 function fillForm(o){clearForm();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el&&o[k])el.value=o[k];});populatePlacedBy(o.company||activeCompany,o.placedBy||'');(o.extras||[]).forEach(e=>addExtra(e.desc,e.cost));}
 function saveOrder(){
   const hasMultiLines=(scanType==='casting'||scanType==='setting') && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1;
@@ -940,6 +941,7 @@ function saveOrder(){
   const extras=Array.from(document.querySelectorAll('.xrow')).map(r=>({desc:r.querySelector('.xd').value,cost:r.querySelector('.xc').value})).filter(e=>e.desc);
   const data={extras};FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)data[k]=el.value;});
   if(pendingScanImageDataUrl)data.imageUrl=pendingScanImageDataUrl;
+  if(pendingCardImageUrl)data.cardImageUrl=pendingCardImageUrl;
   if(pendingExtraction && Array.isArray(pendingExtraction.stones) && pendingExtraction.stones.length){
     data.stones=pendingExtraction.stones.map(s=>({
       position:s&&typeof s.position==='string'?s.position:'',
@@ -963,7 +965,7 @@ function saveOrder(){
     if(window.pendingMemoAfterSave){
       window.pendingMemoAfterSave=false;
       const saved=editId?orders.find(x=>x.id===editId):orders[orders.length-1];
-      pendingScanImageDataUrl=null;pendingExtraction=null;updateScanPreview();
+      pendingScanImageDataUrl=null;pendingCardImageUrl=null;pendingExtraction=null;updateScanPreview();
       closeOverlay('newOrderOverlay');
       if(saved&&saved.id){openMemo(saved.id);return;}
     }
@@ -971,7 +973,7 @@ function saveOrder(){
     if(err&&err.name==='QuotaExceededError'){toast('Photo too large for browser storage — try a smaller image','err');return;}
     throw err;
   }
-  pendingScanImageDataUrl=null;pendingExtraction=null;updateScanPreview();
+  pendingScanImageDataUrl=null;pendingCardImageUrl=null;pendingExtraction=null;updateScanPreview();
   closeOverlay('newOrderOverlay');render();
 }
 
@@ -1066,6 +1068,13 @@ async function handleFile(e){
     if(!res.ok)throw new Error(data.error||'OCR preview failed');
     if(data.success&&data.extracted)applyExt(data.extracted);
     else toast(data.error||'AI scan failed','err');
+    // CAD spec sheets put the beauty render in the TOP-RIGHT quadrant. Crop it out
+    // for a clean card thumbnail (the full sheet is still kept as imageUrl for the
+    // detail view). Non-rings get a slightly wider crop ("small version").
+    if(scanType==='spec'&&pendingScanImageDataUrl){
+      const pt=(data&&data.extracted&&data.extracted.productType)||($$('f_productType')&&$$('f_productType').value)||'Ring';
+      try{pendingCardImageUrl=await cropTopRight(pendingScanImageDataUrl,pt);}catch(_){pendingCardImageUrl=null;}
+    }
   }catch(err){
     toast(err.message||'OCR preview failed','err');
   }finally{
@@ -1085,6 +1094,34 @@ function updateScanPreview(){
   img.alt='Scan preview';
   img.style.cssText='max-height:140px;max-width:100%;border-radius:var(--radius-sm);border:1px solid var(--border);object-fit:contain';
   box.appendChild(lbl);box.appendChild(img);
+}
+/** Crop the top-right quadrant of a CAD sheet (the beauty render) into a square-ish
+ *  card thumbnail. Rings: tight top-right. Bracelet/Necklace/Pendant: a bit wider. */
+function cropTopRight(dataUrl,productType){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const W=img.naturalWidth,H=img.naturalHeight;
+        const wide=/bracelet|necklace|pendant|bangle|chain/i.test(productType||'');
+        // Fraction of the image to take, anchored to the top-right corner.
+        const fw=wide?0.56:0.50, fh=wide?0.58:0.52;
+        const sx=Math.round(W*(1-fw)), sy=0;
+        const sw=Math.round(W*fw), sh=Math.round(H*fh);
+        const out=Math.min(640,Math.max(sw,sh));
+        const c=document.createElement('canvas');c.width=out;c.height=out;
+        const ctx=c.getContext('2d');
+        ctx.fillStyle='#ffffff';ctx.fillRect(0,0,out,out);
+        // Fit the cropped region into the square, centered (contain).
+        const scale=Math.min(out/sw,out/sh);
+        const dw=sw*scale,dh=sh*scale,dx=(out-dw)/2,dy=(out-dh)/2;
+        ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);
+        resolve(c.toDataURL('image/jpeg',0.85));
+      }catch(err){reject(err);}
+    };
+    img.onerror=()=>reject(new Error('crop decode'));
+    img.src=dataUrl;
+  });
 }
 function compressImageForScan(file){
   return new Promise((resolve,reject)=>{
