@@ -49,6 +49,54 @@ export async function exportCompanyExcel(companyId: string, companyName: string)
 }
 
 /**
+ * Import a previously-exported orders workbook into localStorage, tagging every
+ * imported order with the chosen company. Rows are matched by `id`: existing
+ * orders are updated in place, new ones are appended. Returns a small summary.
+ */
+export async function importCompanyExcel(
+  file: File,
+  companyId: string,
+): Promise<{ created: number; updated: number }> {
+  if (typeof window === "undefined") return { created: 0, updated: 0 };
+
+  const fd = new FormData();
+  fd.set("file", file);
+  const res = await fetch("/api/excel/import-orders", { method: "POST", body: fd });
+  const data = (await res.json()) as { ok?: boolean; orders?: AnyOrder[]; error?: string };
+  if (!res.ok || !data.ok || !Array.isArray(data.orders)) {
+    throw new Error(data.error || "Import failed");
+  }
+
+  const raw = window.localStorage.getItem("lgb_orders");
+  const existing = (raw ? (JSON.parse(raw) as unknown[]) : []) as AnyOrder[];
+  const byId = new Map<string, number>();
+  existing.forEach((o, i) => {
+    const id = typeof o.id === "string" ? o.id : "";
+    if (id) byId.set(id, i);
+  });
+
+  let created = 0;
+  let updated = 0;
+  for (const incoming of data.orders) {
+    const tagged: AnyOrder = { ...incoming, company: companyId };
+    const id = typeof incoming.id === "string" ? incoming.id : "";
+    if (id && byId.has(id)) {
+      const idx = byId.get(id)!;
+      existing[idx] = { ...existing[idx], ...tagged };
+      updated++;
+    } else {
+      existing.push(tagged);
+      created++;
+    }
+  }
+
+  window.localStorage.setItem("lgb_orders", JSON.stringify(existing));
+  // Let other open pages (dashboard, history, etc.) pick up the change.
+  window.dispatchEvent(new StorageEvent("storage", { key: "lgb_orders" }));
+  return { created, updated };
+}
+
+/**
  * Export orders to Excel — one workbook PER company (LabGrownBox split into two
  * businesses). Each company's orders download as a separate .xlsx file.
  */

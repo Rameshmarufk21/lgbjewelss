@@ -103,6 +103,33 @@ export async function getMessageById(id: string): Promise<ChatMessage | null> {
   return prisma.chatMessage.findUnique({ where: { id } });
 }
 
+/** Edit the text of an existing message (text messages only). */
+export async function editMessageText(id: string, text: string): Promise<ChatMessage> {
+  return prisma.chatMessage.update({ where: { id }, data: { text: text.slice(0, 4000) } });
+}
+
+/** Delete one message; also removes its locally-stored media file if present. */
+export async function deleteMessage(id: string): Promise<void> {
+  const m = await prisma.chatMessage.findUnique({ where: { id } });
+  if (m?.mediaPath) {
+    const rel = m.mediaPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!rel.includes("..")) {
+      try {
+        await (await import("fs/promises")).unlink(path.join(process.cwd(), "uploads", ...rel.split("/")));
+      } catch {
+        /* file may already be gone / on blob — ignore */
+      }
+    }
+  }
+  await prisma.chatMessage.delete({ where: { id } });
+}
+
+/** Wipe the entire chat history. */
+export async function clearAllMessages(): Promise<number> {
+  const res = await prisma.chatMessage.deleteMany({});
+  return res.count;
+}
+
 /** The URL the client should use: blob URL directly, else the local proxy route. */
 export function clientMediaUrl(m: ChatMessage): string | null {
   return m.mediaUrl || (m.mediaPath ? `/api/chat/media/${m.id}` : null);

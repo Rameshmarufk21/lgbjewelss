@@ -34,7 +34,7 @@ export async function GET(req: Request) {
   const visible = messages
     .filter((m) => isAdmin || !admins.has(m.user.toLowerCase()))
     .map((m) => toClient(m, user));
-  return NextResponse.json({ ok: true, messages: visible, lastSeq, me: user }, { headers: NO_STORE });
+  return NextResponse.json({ ok: true, messages: visible, lastSeq, me: user, isAdmin }, { headers: NO_STORE });
 }
 
 export async function POST(req: Request) {

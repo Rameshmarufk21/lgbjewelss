@@ -15,8 +15,23 @@ export const MGS_METAL_PRICES_URL =
 
 export const TROY_OZ_TO_GRAMS = 31.1034768;
 
-const PURITY_14K = 14 / 24;
-const PURITY_18K = 18 / 24;
+// Standard jewelry-trade millesimal finenesses (the hallmark stamps reference
+// prices are quoted against), NOT the theoretical karat/24 fractions. e.g. 14K is
+// quoted at .585, not 14/24 = .5833 — using the stamp keeps our cards in line with
+// the dealer/reference rates the shop compares against. (10K=.417, 22K=.916 for ref.)
+const PURITY_14K = 0.585;
+const PURITY_18K = 0.75;
+
+// Casting premium — what the caster (MTA Casting Hub) actually charges OVER the raw
+// metal melt value, derived from real MTA invoices by comparing their per-gram price
+// to the spot ("MarketPrice") printed on the same invoice:
+//   Gold 14K:  $93.54/g @ $4325 spot, $94.04/g @ $4348 spot  ⇒ ×1.150 over .585 melt
+//              (held at exactly 1.150 across both dates → a true % markup, ~+15%)
+//   Platinum:  $87.22/g @ $2082 spot                          ⇒ ×1.303 over pure spot (~+30%)
+// Cards show the CASTING price (melt × premium) so the team sees what they'll be
+// billed, not just the raw metal value. Tweak here if the caster's margin changes.
+const GOLD_CASTING_PREMIUM = Number(process.env.GOLD_CASTING_PREMIUM) || 1.15;
+const PLATINUM_CASTING_PREMIUM = Number(process.env.PLATINUM_CASTING_PREMIUM) || 1.303;
 
 export type MgsRawMetal = {
   live_price?: string;
@@ -144,23 +159,23 @@ export function buildMetalsPayload(spot: MetalSpot | null): MetalsPayload {
     cards: {
       yellow14: {
         label: "14K Yellow Gold",
-        karat: "14K · 58.3%",
-        perGram: goldPerGram * PURITY_14K,
-        perOz: goldOz * PURITY_14K,
+        karat: "14K · 58.5% +cast",
+        perGram: goldPerGram * PURITY_14K * GOLD_CASTING_PREMIUM,
+        perOz: goldOz * PURITY_14K * GOLD_CASTING_PREMIUM,
         changePct: goldChg,
       },
       white14: {
         label: "14K White Gold",
-        karat: "14K · 58.3%",
-        perGram: goldPerGram * PURITY_14K,
-        perOz: goldOz * PURITY_14K,
+        karat: "14K · 58.5% +cast",
+        perGram: goldPerGram * PURITY_14K * GOLD_CASTING_PREMIUM,
+        perOz: goldOz * PURITY_14K * GOLD_CASTING_PREMIUM,
         changePct: goldChg,
       },
       rose18: {
         label: "18K Rose Gold",
-        karat: "18K · 75%",
-        perGram: goldPerGram * PURITY_18K,
-        perOz: goldOz * PURITY_18K,
+        karat: "18K · 75% +cast",
+        perGram: goldPerGram * PURITY_18K * GOLD_CASTING_PREMIUM,
+        perOz: goldOz * PURITY_18K * GOLD_CASTING_PREMIUM,
         changePct: goldChg,
       },
       silver: {
@@ -172,9 +187,9 @@ export function buildMetalsPayload(spot: MetalSpot | null): MetalsPayload {
       },
       platinum: {
         label: "Platinum",
-        karat: "950 ref.",
-        perGram: platinumPerGram,
-        perOz: platinumOz,
+        karat: "Pt +cast",
+        perGram: platinumPerGram * PLATINUM_CASTING_PREMIUM,
+        perOz: platinumOz * PLATINUM_CASTING_PREMIUM,
         changePct: platinumChg,
       },
     },

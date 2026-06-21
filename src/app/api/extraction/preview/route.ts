@@ -988,17 +988,22 @@ async function layeredAiExtract(
     }
   }
 
-  // Layer 2: Gemini 1.5 Pro — only if Layer 1 looks weak or missing line_items for an invoice.
+  // Layer 2: a stronger "pro" model — OPT-IN only. The free tier serves just the
+  // flash model (pro returns 429, other flash models 404 on the free key), so we do
+  // NOT call a pro model by default. Set GEMINI_PRO_MODEL (e.g. gemini-2.5-pro) once
+  // billing is enabled to turn this escalation on. Stays free-tier otherwise.
+  const proModel = process.env.GEMINI_PRO_MODEL?.trim();
+  const flashModel = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
   const needsPro =
     effectiveKind !== "cad_spec" &&
     (best.score < 5 ||
       !Array.isArray(best.raw?.line_items) ||
       (Array.isArray(best.raw?.line_items) && best.raw!.line_items.length === 0));
-  if (geminiKey && needsPro) {
+  if (geminiKey && proModel && proModel !== flashModel && needsPro) {
     try {
-      const r = await geminiExtract(geminiKey, "gemini-1.5-pro", images, prompt);
-      layersUsed.push("gemini:1.5-pro");
-      consider("gemini:1.5-pro", r);
+      const r = await geminiExtract(geminiKey, proModel, images, prompt);
+      layersUsed.push(`gemini:${proModel}`);
+      consider(`gemini:${proModel}`, r);
     } catch (e) {
       errors.push(`gemini-pro: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -1071,7 +1076,14 @@ export async function POST(req: Request) {
     let layersUsed: string[] = [];
     let aiErrors: string[] = [];
 
-    if (geminiApiKey || groqApiKey) {
+    // HYBRID, AI-FIRST: when an AI key is configured we run the vision model FIRST
+    // (best accuracy on real camera photos) and use the deterministic parser result
+    // (`ocrMerged`) as the always-on fallback/merge base — so if the AI call fails
+    // (quota/offline/error) we still return the deterministic extraction instead of
+    // nothing. Set LGB_EXTRACTION_AI=off to force deterministic-only (no AI calls).
+    const aiDisabled = (process.env.LGB_EXTRACTION_AI || "").trim().toLowerCase() === "off";
+
+    if (!aiDisabled && (geminiApiKey || groqApiKey)) {
       const ai = await layeredAiExtract(geminiApiKey, groqApiKey, images, scanType, effectiveKind, ocrJoined);
       layersUsed = ai.layersUsed;
       aiErrors = ai.errors;

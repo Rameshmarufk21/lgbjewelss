@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Send, ImagePlus, Mic, Trash2 } from "lucide-react";
+import { Send, ImagePlus, Mic, Trash2, Pencil, X, Check } from "lucide-react";
 
 type ChatMessage = {
   seq: number;
@@ -48,11 +48,14 @@ async function compressImage(file: File): Promise<Blob> {
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [me, setMe] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [recording, setRecording] = useState(false);
   const [recSecs, setRecSecs] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   const lastSeqRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -84,8 +87,9 @@ export default function ChatPage() {
     try {
       const res = await fetch(`/api/chat/messages?after=${lastSeqRef.current}`, { cache: "no-store" });
       if (!res.ok) return;
-      const data = (await res.json()) as { messages: ChatMessage[]; lastSeq: number; me: string };
+      const data = (await res.json()) as { messages: ChatMessage[]; lastSeq: number; me: string; isAdmin?: boolean };
       if (data.me) setMe(data.me);
+      if (typeof data.isAdmin === "boolean") setIsAdmin(data.isAdmin);
       if (data.messages.length) {
         const stick = atBottom();
         setMessages((prev) => [...prev, ...data.messages]);
@@ -103,8 +107,9 @@ export default function ChatPage() {
     void (async () => {
       try {
         const res = await fetch("/api/chat/messages", { cache: "no-store" });
-        const data = (await res.json()) as { messages: ChatMessage[]; lastSeq: number; me: string };
+        const data = (await res.json()) as { messages: ChatMessage[]; lastSeq: number; me: string; isAdmin?: boolean };
         setMe(data.me || "");
+        setIsAdmin(!!data.isAdmin);
         setMessages(data.messages || []);
         lastSeqRef.current = data.lastSeq || 0;
         markSeen(data.lastSeq || 0);
@@ -232,33 +237,134 @@ export default function ChatPage() {
     if (recTimerRef.current) clearInterval(recTimerRef.current);
   }, []);
 
+  function startEdit(m: ChatMessage) {
+    setEditingId(m.id);
+    setEditText(m.text || "");
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText("");
+  }
+  async function saveEdit(id: string) {
+    const t = editText.trim();
+    if (!t) return;
+    try {
+      const res = await fetch(`/api/chat/messages/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: t }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Edit failed");
+        return;
+      }
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text: t } : m)));
+      cancelEdit();
+    } catch {
+      setError("Could not reach server");
+    }
+  }
+  async function deleteMsg(id: string) {
+    if (!window.confirm("Delete this message?")) return;
+    try {
+      const res = await fetch(`/api/chat/messages/${id}`, { method: "DELETE" });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Delete failed");
+        return;
+      }
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+    } catch {
+      setError("Could not reach server");
+    }
+  }
+  async function clearChat() {
+    if (!window.confirm("Clear the ENTIRE chat history for everyone? This cannot be undone.")) return;
+    try {
+      const res = await fetch("/api/chat/clear", { method: "POST" });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Clear failed");
+        return;
+      }
+      setMessages([]);
+      lastSeqRef.current = 0;
+    } catch {
+      setError("Could not reach server");
+    }
+  }
+
   return (
     <div className="chat-page">
       <div className="chat-head">
         <h1 className="page-title">Team chat</h1>
-        <p className="page-sub">Group chat · photos &amp; voice notes</p>
+        {isAdmin && messages.length > 0 ? (
+          <button type="button" className="chat-clear-btn" onClick={() => void clearChat()}>
+            <Trash2 size={14} /> Clear chat
+          </button>
+        ) : null}
       </div>
 
       <div className="chat-scroll" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="chat-empty">No messages yet — say hello 👋</div>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} className={`chat-row${m.mine ? " mine" : ""}`}>
-              <div className="chat-bubble">
-                {!m.mine ? <div className="chat-author">{m.user}</div> : null}
-                {m.kind === "image" && m.mediaId ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- auth-gated media route
-                  <img className="chat-img" src={`/api/chat/media/${m.mediaId}`} alt="photo" loading="lazy" />
-                ) : null}
-                {m.kind === "audio" && m.mediaId ? (
-                  <audio className="chat-audio" controls preload="none" src={`/api/chat/media/${m.mediaId}`} />
-                ) : null}
-                {m.text ? <div className="chat-text">{m.text}</div> : null}
-                <div className="chat-time">{fmtTime(m.createdAt)}</div>
+          messages.map((m) => {
+            const canEdit = m.mine && m.kind === "text";
+            const canDelete = m.mine || isAdmin;
+            return (
+              <div key={m.id} className={`chat-row${m.mine ? " mine" : ""}`}>
+                <div className="chat-bubble">
+                  {!m.mine ? <div className="chat-author">{m.user}</div> : null}
+                  {m.kind === "image" && m.mediaId ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- auth-gated media route
+                    <img className="chat-img" src={`/api/chat/media/${m.mediaId}`} alt="photo" loading="lazy" />
+                  ) : null}
+                  {m.kind === "audio" && m.mediaId ? (
+                    <audio className="chat-audio" controls preload="none" src={`/api/chat/media/${m.mediaId}`} />
+                  ) : null}
+                  {editingId === m.id ? (
+                    <div className="chat-edit">
+                      <input
+                        className="fc"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void saveEdit(m.id);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        autoFocus
+                      />
+                      <button type="button" className="chat-edit-btn" onClick={() => void saveEdit(m.id)} aria-label="Save">
+                        <Check size={15} />
+                      </button>
+                      <button type="button" className="chat-edit-btn" onClick={cancelEdit} aria-label="Cancel">
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ) : m.text ? (
+                    <div className="chat-text">{m.text}</div>
+                  ) : null}
+                  <div className="chat-time">{fmtTime(m.createdAt)}</div>
+                  {(canEdit || canDelete) && editingId !== m.id ? (
+                    <div className="chat-actions">
+                      {canEdit ? (
+                        <button type="button" className="chat-action" onClick={() => startEdit(m)} aria-label="Edit">
+                          <Pencil size={13} />
+                        </button>
+                      ) : null}
+                      {canDelete ? (
+                        <button type="button" className="chat-action" onClick={() => void deleteMsg(m.id)} aria-label="Delete">
+                          <Trash2 size={13} />
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

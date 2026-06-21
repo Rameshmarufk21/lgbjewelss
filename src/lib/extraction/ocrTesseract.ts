@@ -6,23 +6,45 @@
  * WASM core + the `eng.traineddata` language file from a CDN at runtime, then tries
  * to cache it to disk at `process.cwd()`. On Vercel, the function filesystem is
  * read-only outside `/tmp`, and CDN egress on a cold start can be slow/unreliable —
- * this is what was causing scans to hang forever on "Reading with AI…" in production
- * while working fine locally (where the cache write succeeds and masks the issue).
+ * this caused scans to hang forever on "Reading…" in production while working fine
+ * locally. We ship `eng.traineddata` at the project root and point `langPath` at it.
  *
- * Fix: `eng.traineddata` is already committed at the project root, so we point
- * `langPath` at it directly (no network) and `cachePath` at `/tmp` (the only
- * writable directory in serverless). The file is force-included in the Vercel
- * function bundle via `outputFileTracingIncludes` in next.config.ts.
+ * SPEED: creating a worker + loading the language model costs ~250–400ms. We keep a
+ * single worker alive for the lifetime of the (warm) serverless instance and reuse
+ * it, serializing recognize() calls so they don't clobber each other.
  */
+import type { Worker } from "tesseract.js";
+
+let workerPromise: Promise<Worker> | null = null;
+// Serialize recognize() calls — one worker processes one image at a time.
+let queue: Promise<unknown> = Promise.resolve();
+
+async function getWorker(): Promise<Worker> {
+  if (!workerPromise) {
+    workerPromise = (async () => {
+      const { createWorker } = await import("tesseract.js");
+      return createWorker("eng", 1 /* OEM.LSTM_ONLY */, {
+        langPath: process.cwd(), // local eng.traineddata, no CDN fetch
+        gzip: false,
+        cachePath: "/tmp", // only writable dir in serverless
+      });
+    })().catch((err) => {
+      workerPromise = null; // allow retry on next call if init failed
+      throw err;
+    });
+  }
+  return workerPromise;
+}
 
 async function preprocess(buffer: Buffer): Promise<Buffer> {
   try {
     const sharp = (await import("sharp")).default;
     const img = sharp(buffer, { failOn: "none" }).rotate(); // auto-orient from EXIF
     const meta = await img.metadata();
-    // Upscale small images so small print is legible to Tesseract.
+    // Upscale small images so text is legible to Tesseract. 1200px is plenty for the
+    // large headline/style text we extract and is faster than larger targets.
     const width = meta.width ?? 0;
-    const pipeline = width && width < 1600 ? img.resize({ width: 1800 }) : img;
+    const pipeline = width && width < 1200 ? img.resize({ width: 1200 }) : img;
     return await pipeline
       .grayscale()
       .normalize() // stretch contrast
@@ -36,21 +58,16 @@ async function preprocess(buffer: Buffer): Promise<Buffer> {
 
 export async function ocrImageBuffer(buffer: Buffer): Promise<string> {
   const prepped = await preprocess(buffer);
-  const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng", 1 /* OEM.LSTM_ONLY */, {
-    // Local copy, no CDN fetch — see comment above. langPath must be a plain
-    // directory (not a URL) so tesseract.js reads `${langPath}/eng.traineddata`.
-    langPath: process.cwd(),
-    gzip: false,
-    // Only /tmp is writable in serverless; this is also harmless locally.
-    cachePath: "/tmp",
-  });
-  try {
+  const worker = await getWorker();
+  // Chain onto the queue so concurrent callers don't run recognize() in parallel
+  // on the same worker.
+  const run = queue.then(async () => {
     const {
       data: { text },
     } = await worker.recognize(prepped);
     return text ?? "";
-  } finally {
-    await worker.terminate();
-  }
+  });
+  // Keep the queue alive even if this call rejects.
+  queue = run.catch(() => undefined);
+  return run;
 }

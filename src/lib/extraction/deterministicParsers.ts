@@ -13,16 +13,18 @@ function num(s: string | undefined | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// Reject the karat net-weight ladder (NT-10K, NW-14K, …) and bare karats (14K).
-const KARAT_LADDER = /^(N[TW]-?\d{1,2}K|\d{1,2}K)$/i;
+// Reject the karat net-weight ladder (NT-10K, NW-14K, INT-14K from OCR, …),
+// bare karats (14K), and N/A — none of these are real style codes.
+const KARAT_LADDER = /^(I?N[TW]-?\d{1,2}K|\d{1,2}K|N\/?A)$/i;
 
 function styleFrom(text: string): string | null {
-  // Prefer the SF-family code (SFR-120, SFE-22, SFRBR-8…).
-  const sf = text.match(/\b(SF[A-Z]{0,3}-?\d{1,4}[A-Z]?)\b/i);
+  // Prefer the SF-family code (SFR-120, SFER-22, SFR-109-A, SFRBR-8…). The
+  // optional trailing "-A"/"-B" letter suffix must be kept (SFR-109-A ≠ SFR-109).
+  const sf = text.match(/\b(SF[A-Z]{0,3}-?\d{1,4}(?:-?[A-Z])?)\b/i);
   if (sf) return sf[1].toUpperCase();
-  // Otherwise the first plausible code that is NOT a karat ladder entry.
-  const candidates = [...text.matchAll(/\b([A-Z]{2,5}-?\d{2,4}[A-Z]?)\b/g)].map((m) => m[1]);
-  const good = candidates.find((c) => !KARAT_LADDER.test(c) && !/^N[TW]/i.test(c));
+  // Otherwise the first plausible code that is NOT a karat-ladder entry.
+  const candidates = [...text.matchAll(/\b([A-Z]{2,5}-?\d{2,4}(?:-?[A-Z])?)\b/g)].map((m) => m[1]);
+  const good = candidates.find((c) => !KARAT_LADDER.test(c) && !/^I?N[TW]/i.test(c));
   return good ? good.toUpperCase() : null;
 }
 
@@ -103,10 +105,20 @@ export function parseMtaInvoice(text: string): Dict {
 }
 
 const SHAPE_MAP: Record<string, string> = {
+  // Abbreviations
   MQ: "Marquise (MQ)", RND: "Round (RND)", RD: "Round (RND)", OV: "Oval", EM: "Emerald",
   PR: "Princess", CU: "Cushion", PE: "Pear", HRT: "Heart", AS: "Asscher", RAD: "Radiant", BG: "Baguette",
+  // Full words as they appear on CAD spec headlines (OVAL SIZE:-…, RADIANT SIZE:-…)
+  MARQUISE: "Marquise (MQ)", ROUND: "Round (RND)", OVAL: "Oval", EMERALD: "Emerald",
+  PRINCESS: "Princess", CUSHION: "Cushion", PEAR: "Pear", HEART: "Heart", ASSCHER: "Asscher",
+  RADIANT: "Radiant", BAGUETTE: "Baguette",
 };
 const shapeName = (code: string): string => SHAPE_MAP[code.toUpperCase()] || code;
+
+// Shape tokens for the headline regex — longest/full words first so e.g. "OVAL"
+// wins over "OV" and "ROUND" over "RND".
+const SHAPE_TOKENS =
+  "MARQUISE|PRINCESS|BAGUETTE|EMERALD|CUSHION|RADIANT|ASSCHER|ROUND|HEART|OVAL|PEAR|HRT|RND|RAD|MQ|EM|PR|CU|AS|BG|OV|PE|RD";
 
 /** CAD / spec sheet — printed style table + headline (center/side) stones above it. */
 export function parseCadSpec(text: string): Dict {
@@ -115,20 +127,35 @@ export function parseCadSpec(text: string): Dict {
   if (style) out.styleCode = style;
   out.productType = productTypeFromStyle(style);
 
+  // US ring sizes are ~3–16. OCR sometimes drops the decimal point ("5.5"→"55");
+  // reject implausible values rather than emit a wrong size.
   const size = text.match(/\b(\d+(?:\.\d+)?)\s*-?\s*US\b/i);
-  if (size) out.size = `${size[1]}-US`;
+  if (size) {
+    const sv = Number(size[1]);
+    if (Number.isFinite(sv) && sv >= 2 && sv <= 16) out.size = `${size[1]}-US`;
+  }
 
   const stones: Dict[] = [];
-  // Headline stones above the table: "MQ SIZE:- 13.00x6.50 MM(4-PCS)"
-  const headRe =
-    /\b(MQ|RND|RD|OV|EM|PR|CU|PE|HRT|AS|RAD|BG)\b[^\n]{0,12}?SIZE\s*[:\-]*\s*([\d.]+(?:\s*[xX]\s*[\d.]+)?)\s*MM\s*(?:\(?\s*(\d+)\s*-?\s*PCS\)?)?/gi;
+  // Headline stones above the table: "OVAL SIZE:-12.51x8.83 MM", "MQ SIZE:-4.00x2.00 MM(4-PCS)".
+  // The required ":"/"-" after SIZE distinguishes the headline ("SIZE:-…") from the
+  // melee-table header ("…MM SIZE|"). "MM" is optional (some rows omit it). Dedupe
+  // repeats (OCR sometimes doubles a line).
+  const headRe = new RegExp(
+    `\\b(${SHAPE_TOKENS})\\b[ \\t]{0,4}SIZE\\s*[:\\-]+\\s*(\\d+(?:\\.\\d+)?(?:\\s*[xX]\\s*\\d+(?:\\.\\d+)?)?)\\s*(?:MM)?\\s*(?:\\(?\\s*(\\d+)\\s*-?\\s*PCS\\)?)?`,
+    "gi",
+  );
   let h: RegExpExecArray | null;
   let firstHead = true;
+  const seenHead = new Set<string>();
   while ((h = headRe.exec(text)) !== null) {
+    const sizeMm = h[2].replace(/\s+/g, "");
+    const key = `${h[1].toUpperCase()}|${sizeMm}`;
+    if (seenHead.has(key)) continue;
+    seenHead.add(key);
     stones.push({
       position: firstHead ? "Center" : "Side",
       shape: shapeName(h[1]),
-      sizeMm: h[2].replace(/\s+/g, ""),
+      sizeMm,
       pcs: h[3] ? Number(h[3]) : 1,
       caratEach: null,
       caratTotal: null,

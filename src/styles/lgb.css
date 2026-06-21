@@ -2266,8 +2266,27 @@
   padding: 12px 16px 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .lgb-shell .chat-head .page-title { font-size: 1.3rem; }
+.lgb-shell .chat-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--danger);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.lgb-shell .chat-clear-btn:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); border-color: var(--danger); }
 .lgb-shell .chat-scroll {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -2282,6 +2301,7 @@
 .lgb-shell .chat-row { display: flex; justify-content: flex-start; }
 .lgb-shell .chat-row.mine { justify-content: flex-end; }
 .lgb-shell .chat-bubble {
+  position: relative;
   max-width: min(78%, 520px);
   background: var(--cream);
   border: 1px solid var(--border);
@@ -2289,6 +2309,52 @@
   padding: 7px 11px 5px;
   box-shadow: var(--shadow);
 }
+.lgb-shell .chat-actions {
+  position: absolute;
+  top: -10px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  background: var(--cream2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.lgb-shell .chat-row.mine .chat-actions { right: auto; left: 6px; }
+.lgb-shell .chat-bubble:hover .chat-actions,
+.lgb-shell .chat-actions:focus-within { opacity: 1; }
+.lgb-shell .chat-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+}
+.lgb-shell .chat-action:hover { background: var(--cream); color: var(--text); }
+.lgb-shell .chat-edit { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
+.lgb-shell .chat-edit .fc { padding: 4px 8px; font-size: 0.88rem; min-width: 160px; }
+.lgb-shell .chat-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--cream2);
+  color: var(--text);
+  cursor: pointer;
+}
+.lgb-shell .chat-edit-btn:hover { background: var(--cream); }
 .lgb-shell .chat-row.mine .chat-bubble {
   background: var(--peacock);
   color: var(--cream);
