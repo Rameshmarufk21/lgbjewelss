@@ -40,14 +40,7 @@ function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={onSubmit}>
-      <span className="login-mark" aria-hidden>
-        <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round">
-          <path d="M20 38 L50 12 L80 38 L50 92 Z" />
-          <path d="M20 38 H80" />
-          <path d="M35 38 L50 12 L65 38" />
-          <path d="M35 38 L50 92 M65 38 L50 92" />
-        </svg>
-      </span>
+      <span className="login-mark" aria-hidden />
       <h1 className="login-title">Welcome back</h1>
       <label className="login-field">
         <span>Username</span>
