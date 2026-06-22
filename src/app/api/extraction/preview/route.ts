@@ -1040,10 +1040,31 @@ export async function POST(req: Request) {
   if (!images.length) return NextResponse.json({ error: "imageData required" }, { status: 400 });
 
   try {
+    // AI-first: decide up front whether the vision model will run.
+    const aiDisabled = (process.env.LGB_EXTRACTION_AI || "").trim().toLowerCase() === "off";
+    const useAi = !aiDisabled && Boolean(geminiApiKey || groqApiKey);
+
+    // OCR (Tesseract) is ONLY needed for the deterministic/no-AI path. Gemini reads
+    // the image directly and needs no OCR text. On Vercel the Tesseract WASM core can
+    // fail to load and throws an UNCAUGHT emscripten exception that kills the whole
+    // function (exit 129 → 120s hang) — not something try/catch can contain. So when
+    // AI is in play we skip Tesseract entirely: faster, and crash-proof.
     let ocrJoined = "";
-    for (const img of images) {
-      const buf = Buffer.from(img.imageData, "base64");
-      ocrJoined += `\n${await ocrImageBuffer(buf)}`;
+    if (!useAi) {
+      for (const img of images) {
+        try {
+          const buf = Buffer.from(img.imageData, "base64");
+          const text = await Promise.race([
+            ocrImageBuffer(buf),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error("OCR timed out")), 30_000),
+            ),
+          ]);
+          ocrJoined += `\n${text}`;
+        } catch (err) {
+          console.warn("[extraction] OCR failed:", (err as Error)?.message);
+        }
+      }
     }
 
     // Classify first so we can pick the right deterministic parser / AI prompt.
@@ -1078,12 +1099,8 @@ export async function POST(req: Request) {
 
     // HYBRID, AI-FIRST: when an AI key is configured we run the vision model FIRST
     // (best accuracy on real camera photos) and use the deterministic parser result
-    // (`ocrMerged`) as the always-on fallback/merge base — so if the AI call fails
-    // (quota/offline/error) we still return the deterministic extraction instead of
-    // nothing. Set LGB_EXTRACTION_AI=off to force deterministic-only (no AI calls).
-    const aiDisabled = (process.env.LGB_EXTRACTION_AI || "").trim().toLowerCase() === "off";
-
-    if (!aiDisabled && (geminiApiKey || groqApiKey)) {
+    // (`ocrMerged`) as the fallback/merge base. `useAi` was computed above.
+    if (useAi) {
       const ai = await layeredAiExtract(geminiApiKey, groqApiKey, images, scanType, effectiveKind, ocrJoined);
       layersUsed = ai.layersUsed;
       aiErrors = ai.errors;
