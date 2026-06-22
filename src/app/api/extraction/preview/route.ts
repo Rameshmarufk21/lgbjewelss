@@ -841,7 +841,12 @@ async function geminiExtract(
       generationConfig: {
         temperature: 0,
         responseMimeType: "application/json",
-        maxOutputTokens: 4096,
+        // gemini-2.5-flash "thinks" by default and that thinking consumes the output
+        // token budget — on a long extraction prompt it can use 3000+ tokens and blow
+        // past the limit, returning truncated/empty JSON (the "0 fields" bug). Disable
+        // thinking (we want a direct structured answer) and give the answer room.
+        maxOutputTokens: 8192,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
   });

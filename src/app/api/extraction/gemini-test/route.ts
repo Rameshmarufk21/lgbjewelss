@@ -13,7 +13,7 @@ export async function POST() {
     );
   }
 
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   try {
