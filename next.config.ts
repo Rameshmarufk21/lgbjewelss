@@ -49,10 +49,15 @@ const nextConfig: NextConfig = {
       "public/orders-app/assets/**",
     ],
   },
-  // eng.traineddata isn't `require`d/imported, so Next's automatic bundling won't
-  // detect it — force-include it for every route that can run OCR (see ocrTesseract.ts).
+  // Neither eng.traineddata nor the tesseract.js-core WASM files are statically
+  // `import`ed, so Next's tracer won't bundle them into the serverless function —
+  // on Vercel that makes OCR throw `ENOENT ...tesseract-core-simd.wasm` and the
+  // request hang to the 120s timeout. Force-include both for every OCR route.
   outputFileTracingIncludes: {
-    "app/api/extraction/**": ["./eng.traineddata"],
+    "app/api/extraction/**": [
+      "./eng.traineddata",
+      "./node_modules/tesseract.js-core/**",
+    ],
   },
 };
 
