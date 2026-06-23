@@ -22,8 +22,21 @@ import { parseMtaInvoice, parseCadSpec } from "@/lib/extraction/deterministicPar
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-type ScanType = "casting" | "setting" | "memo" | "spec";
+type ScanType = "auto" | "casting" | "setting" | "memo" | "spec";
 type PreviewImage = { imageData: string; mimeType: string };
+
+/** Map the AI's free-text documentKind to our internal enum (used in auto mode). */
+function mapAiDocumentKind(s: unknown): DocumentKind {
+  const x = String(s || "").toLowerCase();
+  if (/cad|spec/.test(x)) return "cad_spec";
+  if (/memo/.test(x)) return "memo";
+  if (/carat/.test(x)) return "carat_casting";
+  if (/setting|setter|\bmc\b/.test(x)) return "mc_setting";
+  if (/find/.test(x)) return "findings";
+  if (/mta/.test(x)) return "mta_casting";
+  if (/cast|invoice/.test(x)) return "invoice_generic";
+  return "invoice_generic";
+}
 
 function fromInvoiceLike(parsed: Record<string, unknown>, scanType: ScanType): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -186,8 +199,8 @@ function parseSpecFromOcr(ocrText: string): Record<string, unknown> {
 
 function normalizeScanType(value: unknown): ScanType {
   const x = typeof value === "string" ? value : "";
-  if (x === "casting" || x === "setting" || x === "memo" || x === "spec") return x;
-  return "casting";
+  if (x === "auto" || x === "casting" || x === "setting" || x === "memo" || x === "spec") return x;
+  return "auto";
 }
 
 function normalizeImages(body: Record<string, unknown>): PreviewImage[] {
@@ -426,6 +439,16 @@ function deriveCastWeightsFromLineItems(extracted: Record<string, unknown>): voi
  * again from raw text.
  */
 function scrubCadSpec(extracted: Record<string, unknown>, joinedOcr: string): void {
+  // A CAD spec has NO casting/setting invoice — those fields don't belong here. The
+  // model sometimes maps the NT-10K/14K net-weight ladder into castGrams/castDWT etc.
+  // Strip every invoice-only field so none of it leaks onto the order form.
+  for (const k of [
+    "castGrams", "castDWT", "castPrint", "castTotal", "castInvoice", "castDate",
+    "castVendor", "castPickup", "castPickupDate",
+    "setter", "setInvoice", "setDate", "setPrice", "setLabor", "setLaser", "setTotal",
+  ]) {
+    delete extracted[k];
+  }
   const sc = typeof extracted.styleCode === "string" ? extracted.styleCode.trim() : "";
   const looksLikeNoise =
     !sc ||
@@ -675,6 +698,40 @@ function buildExtractionPrompt(effectiveKind: DocumentKind, scanType: ScanType, 
     imageCount > 1
       ? `You will receive ${imageCount} images (multiple pages or retakes of the SAME paperwork). Merge facts into ONE JSON. Prefer footer/summary totals and the clearest row for per-product weights and print/CAD fees.`
       : "";
+
+  // AUTO mode: the model must FIRST classify the document, then extract with the right
+  // shape. This is what lets us drop the manual tab selection — the AI sorts it.
+  if (scanType === "auto") {
+    return `You are an intake assistant for LabGrownBox jewelry operations. ${multi}
+STEP 1 — CLASSIFY the document. Set "documentKind" to ONE of:
+  - "cad_spec": a CAD / design spec sheet for ONE piece. Tell-tale signs: 3D renders of a ring/piece, a karat PRICE LADDER (NT-10K, NT-14K, NT-18K, NT-22K, SILVER, PLATINUM), a "STYLE NO", a ring "SIZE", and a stone size table (SHAPE / SIEVE SIZE / PTS / MM SIZE / QTY / WEIGHT). It has NO dollar amounts and NO "Total Due".
+  - "casting_invoice": a casting invoice (e.g. MTA Casting Hub, Carat Cast). Has a vendor name/address, an INVOICE #, a DATE, dollar amounts, "Total Due".
+  - "setting_invoice": a stone-setting invoice (e.g. MC Production) or a setter memo.
+  - "stone_memo": a handwritten stone/diamond approval memo (sizes → carat weights).
+  - "findings_invoice": a findings vendor invoice.
+
+STEP 2 — EXTRACT per type:
+
+IF "cad_spec":
+  CRITICAL: there is exactly ONE piece. The NT-10K / NT-14K / NT-18K / NT-22K / SILVER / PLATINUM rows are METAL PRICE OPTIONS for that same piece — they are NOT separate products. NEVER put them in line_items. Set "line_items": null and "metal": null (metal is chosen later).
+  Return: { "documentKind":"cad_spec", "styleCode":"SFR-…", "productType":"Ring|Pendant|Earring|Bracelet|Necklace|Bangle", "size":"US size or null", "metal":null,
+    "stones":[ {"position":"Center|Side|Halo|Accent","shape":"Round (RND)|Marquise (MQ)|Oval|Emerald|Cushion|Pear|Princess|Radiant|Heart|Baguette|Asscher","sizeMm":"AxB or A","pcs":int,"caratEach":num_or_null,"caratTotal":num_or_null} ],
+    "stoneShape":"center stone shape", "stoneMM":"center stone sizeMm", "stonePcs":total_pieces, "stoneCt":total_carats_or_null, "notes":"short summary", "line_items":null }
+
+IF an INVOICE ("casting_invoice" / "setting_invoice" / "findings_invoice"):
+  Each DATA ROW that has its own dollar line total is a SEPARATE product → ONE line_item per row. A 2-product invoice MUST return 2 line_items; a 5-product invoice 5. Do NOT merge rows and do NOT treat a metal/market-price header as a product.
+  Return: { "documentKind":"casting_invoice|setting_invoice|findings_invoice",
+    "castVendor":"vendor (for casting/findings)", "setter":"vendor (for setting)", "castInvoice":"INVOICE #", "castDate":"YYYY-MM-DD", "castTotal":footer_total_number,
+    "styleCode":"first row style", "metal":"first row metal e.g. 14K Yellow Gold|Platinum", "productType":"Ring|…",
+    "line_items":[ {"description":"clean row","styleCode":"SFR-…","metal":"Gold|Platinum","karat":"14K Yellow","qty":int,"dwt":num_or_null,"grams":num_or_null,"printFee":int_or_null,"lineTotal":num,"amount":num} ] }
+  NOTE: the "MarketPrice"/spot number near the top (e.g. 2082, 4325) is NOT a style code.
+
+IF "stone_memo":
+  Return: { "documentKind":"stone_memo", "styleCode":"top code or null", "setterCost":num_or_null, "totalPcs":int, "totalCarat":num,
+    "stones":[ {"shape":"Round (RND)|…","sizeMm":"3","pcs":int,"caratTotal":num} ] }
+
+Rules: numbers as numbers (no $, no commas); dates YYYY-MM-DD; null for anything unreadable — NEVER guess a style code or a number. Output ONLY the JSON object, no code fences, no prose.`;
+  }
 
   if (effectiveKind === "cad_spec" || scanType === "spec") {
     return `You are reading a CAD / jewelry spec sheet for LabGrownBox (a single ring or piece design). ${multi}
@@ -972,9 +1029,12 @@ async function layeredAiExtract(
   const errors: string[] = [];
   let best: { raw: Record<string, unknown> | null; score: number; layer: string } = { raw: null, score: 0, layer: "" };
 
-  // CAD specs and stone memos keep their own shape (stones[]) — skip invoice normalization.
+  // CAD specs and stone memos keep their own shape (stones[]) — skip invoice
+  // normalization. Auto mode also passes through: the universal prompt already returns
+  // canonical field names and we don't know the type until the AI tells us.
   const passthrough =
-    scanType === "spec" || scanType === "memo" || effectiveKind === "cad_spec" || effectiveKind === "memo";
+    scanType === "auto" || scanType === "spec" || scanType === "memo" ||
+    effectiveKind === "cad_spec" || effectiveKind === "memo";
   const consider = (layer: string, raw: Record<string, unknown> | null) => {
     const normalized = raw ? (passthrough ? raw : normalizeGeminiOrderPayload(raw)) : null;
     const sc = scoreExtraction(normalized, effectiveKind);
@@ -1118,16 +1178,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // For CAD spec images the line_items array is noise (karat pricing rows, not products).
-    // Force-suppress it regardless of which layer picked it up. Also reject NT-/karat
-    // bleed-through into styleCode and metal.
-    if (effectiveKind === "cad_spec" || scanType === "spec") {
-      delete extracted.line_items;
-      scrubCadSpec(extracted, ocrJoined);
+    // In AUTO mode we trust the AI's own classification for post-processing & the
+    // response label (the whole point: the AI sorts the document, not the tab).
+    let finalKind: DocumentKind = effectiveKind;
+    if (scanType === "auto" && typeof extracted.documentKind === "string") {
+      finalKind = mapAiDocumentKind(extracted.documentKind);
     }
 
-    if (effectiveKind === "memo" || scanType === "memo") {
-      // Stone memo → map the AI summary into the order's stone fields (keep stones[] for the memo page).
+    if (finalKind === "cad_spec" || scanType === "spec") {
+      // CAD spec: line_items are noise (karat price ladder, not products). Strip them
+      // and reject NT-/karat bleed-through into styleCode / casting fields.
+      delete extracted.line_items;
+      scrubCadSpec(extracted, ocrJoined);
+    } else if (finalKind === "memo" || scanType === "memo") {
+      // Stone memo → map the AI summary into the order's stone fields.
       delete extracted.line_items;
       const tc = extracted.totalCarat;
       const tp = extracted.totalPcs;
@@ -1137,24 +1201,23 @@ export async function POST(req: Request) {
         extracted.setTotal = String(extracted.setterCost);
       }
     } else {
-      // Invoice / setting post-processing (not for CAD specs or memos).
-      if (scanType !== "spec") {
-        deriveCastPrintFromLineItems(extracted);
-        deriveCastWeightsFromLineItems(extracted);
-      }
+      // Invoice / setting post-processing.
+      deriveCastPrintFromLineItems(extracted);
+      deriveCastWeightsFromLineItems(extracted);
       enrichExtractedFromJoinedOcr(ocrJoined, scanType, extracted);
-      if (scanType !== "spec") backfillWeightsAndMetalFromLineItems(extracted);
+      backfillWeightsAndMetalFromLineItems(extracted);
       normalizeExtractedForOrderForm(extracted);
       alignStyleAndNotes(extracted);
     }
 
-    // Surface the detected document kind so the UI can label it ("CAD spec" vs "Invoice").
-    if (!extracted.documentKind) extracted.documentKind = effectiveKind;
+    // Surface the detected document kind so the UI can label & route ("CAD spec" → 1
+    // card; "invoice" → one card per line_item).
+    extracted.documentKind = finalKind;
 
     return NextResponse.json({
       success: true,
       extracted,
-      documentKind: effectiveKind,
+      documentKind: finalKind,
       rawTextPreview: ocrJoined.slice(0, 400),
       imageCount: images.length,
       visionUsed,
