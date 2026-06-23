@@ -394,8 +394,9 @@ textarea.fc{resize:vertical;min-height:68px}
   <div class="mbody">
     <div>
       <div class="stabs" style="margin-bottom:10px">
-        <button class="stab active" onclick="setScan(this,'casting')">Casting Invoice</button>
-        <button class="stab" onclick="setScan(this,'setting')">Setting Invoice</button>
+        <button class="stab active" onclick="setScan(this,'auto')">✨ Auto-detect</button>
+        <button class="stab" onclick="setScan(this,'casting')">Casting</button>
+        <button class="stab" onclick="setScan(this,'setting')">Setting</button>
         <button class="stab" onclick="setScan(this,'memo')">Stone Memo</button>
         <button class="stab" onclick="setScan(this,'spec')">Spec Sheet</button>
       </div>
@@ -403,7 +404,7 @@ textarea.fc{resize:vertical;min-height:68px}
         <input type="file" id="fInput" accept="image/*" multiple onchange="handleFile(event)">
         <div class="sdrop-icon">📷</div>
         <div class="sdrop-lbl">Tap to photograph or upload document</div>
-        <div class="sdrop-sub">Casting · Setting · Stone memo · Spec sheet (you can select multiple images)</div>
+        <div class="sdrop-sub">Auto-detects CAD specs &amp; invoices — an invoice with N products makes N cards (you can select multiple images)</div>
         <div id="scanPreview" style="display:none;margin-top:12px"></div>
       </div>
       <div class="aiprog" id="aiprog"><div class="spin"></div> Reading with AI…</div>
@@ -489,7 +490,7 @@ textarea.fc{resize:vertical;min-height:68px}
 
 <script>
 let orders=JSON.parse(localStorage.getItem('lgb_orders')||'[]');
-let view='grid',tab='All',scanType='casting',editId=null,pendingScanImageDataUrl=null,pendingCardImageUrl=null,pendingExtraction=null;
+let view='grid',tab='All',scanType='auto',editId=null,pendingScanImageDataUrl=null,pendingCardImageUrl=null,pendingExtraction=null;
 const STATUSES=['All','Inquiry','Casting','At Setter','Hold','Blocked','Completed','Errors'];
 const STEPS=['Inquiry','Casting','At Setter','Completed'];
 const BADGE={Inquiry:'b-inquiry',Casting:'b-casting','At Setter':'b-setter',Hold:'b-hold',Blocked:'b-blocked',Completed:'b-completed'};
@@ -533,6 +534,28 @@ function migrateOrder(o){
 orders=orders.map(migrateOrder);
 
 function persist(){localStorage.setItem('lgb_orders',JSON.stringify(orders));}
+/** Persist, but if localStorage is full, drop the heavy images from the just-saved
+ *  order(s) (full image first, then the crop) and retry — so an order is NEVER lost
+ *  just because a scan photo was big. Returns true if saved. */
+function persistResilient(newOrders){
+  try{persist();return true;}catch(e){
+    if(!(e&&e.name==='QuotaExceededError'))throw e;
+  }
+  // Shed images in escalating order: extra documents → full photo → card crop last.
+  newOrders.forEach(o=>{delete o.imageUrls;});
+  try{persist();toast('Saved (extra docs dropped — storage was full)','ok');return true;}catch(e){
+    if(!(e&&e.name==='QuotaExceededError'))throw e;
+  }
+  newOrders.forEach(o=>{delete o.imageUrl;});
+  try{persist();toast('Saved (full photo dropped — storage was full)','ok');return true;}catch(e){
+    if(!(e&&e.name==='QuotaExceededError'))throw e;
+  }
+  newOrders.forEach(o=>{delete o.cardImageUrl;});
+  try{persist();toast('Saved (photos dropped — storage was full)','ok');return true;}catch(e){
+    if(!(e&&e.name==='QuotaExceededError'))throw e;
+  }
+  return false;
+}
 persist(); // save company tags + migrations so other pages read them immediately
 function nextId(){return 'ORD-'+String(orders.length+1).padStart(3,'0');}
 function $$(id){return document.getElementById(id);}
@@ -932,15 +955,34 @@ function onCompanyChange(){
   const cur=$$('f_placedBy')?$$('f_placedBy').value:'';
   populatePlacedBy(c, placersFor(c).includes(cur)?cur:'');
 }
-function clearForm(){populateCompanySelect();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});const cc=$$('f_company');if(cc)cc.value=activeCompany;populatePlacedBy(activeCompany,'');$$('xList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingCardImageUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';}
+function clearForm(){populateCompanySelect();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});const cc=$$('f_company');if(cc)cc.value=activeCompany;populatePlacedBy(activeCompany,'');$$('xList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingCardImageUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';
+  // Reset the scan mode to Auto-detect on every open.
+  scanType='auto';const tabs=document.querySelectorAll('.stab');tabs.forEach((b,i)=>b.classList.toggle('active',i===0));}
 function fillForm(o){clearForm();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el&&o[k])el.value=o[k];});populatePlacedBy(o.company||activeCompany,o.placedBy||'');(o.extras||[]).forEach(e=>addExtra(e.desc,e.cost));}
-function saveOrder(){
-  const hasMultiLines=(scanType==='casting'||scanType==='setting') && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1;
+async function saveOrder(){
+  // Any invoice with 2+ product lines → one card per line (the AI decides the doc type,
+  // not the tab). A CAD spec has no line_items, so it stays a single card.
+  const hasMultiLines=pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1;
   const sc=$$('f_styleCode').value.trim();
   if(!sc && !hasMultiLines){toast('Style code required','err');return;}
   const extras=Array.from(document.querySelectorAll('.xrow')).map(r=>({desc:r.querySelector('.xd').value,cost:r.querySelector('.xc').value})).filter(e=>e.desc);
   const data={extras};FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)data[k]=el.value;});
-  if(pendingScanImageDataUrl)data.imageUrl=pendingScanImageDataUrl;
+  // Store a downsized copy of the document (the full scan is too big for localStorage).
+  if(pendingScanImageDataUrl){
+    const shrunk=await shrinkDataUrl(pendingScanImageDataUrl,1100,0.6);
+    if(editId){
+      // Editing: a new scan (e.g. adding the MTA casting invoice to a CAD order) is an
+      // ADDITIONAL document — append it to the gallery. Do NOT replace the original
+      // primary/card image, so the ring render stays the card and isn't swapped out.
+      const ex=orders.find(o=>o.id===editId)||{};
+      data.imageUrls=[...(Array.isArray(ex.imageUrls)?ex.imageUrls:[]),shrunk];
+      if(!ex.imageUrl)data.imageUrl=shrunk; // only set a primary if the order had none
+    }else{
+      data.imageUrl=shrunk;
+    }
+  }
+  // The card thumbnail only ever comes from a product render (CAD/spec crop) — an
+  // invoice photo must never overwrite it.
   if(pendingCardImageUrl)data.cardImageUrl=pendingCardImageUrl;
   if(pendingExtraction && Array.isArray(pendingExtraction.stones) && pendingExtraction.stones.length){
     data.stones=pendingExtraction.stones.map(s=>({
@@ -953,15 +995,20 @@ function saveOrder(){
     }));
   }
   try{
-    if(editId){const i=orders.findIndex(o=>o.id===editId);orders[i]=migrateOrder({...orders[i],...data});toast('Updated ✓','ok');}
-    else if((scanType==='casting'||scanType==='setting') && pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1){
+    let newOnes=[];
+    if(editId){const i=orders.findIndex(o=>o.id===editId);orders[i]=migrateOrder({...orders[i],...data});newOnes=[orders[i]];toast('Updated ✓','ok');}
+    else if(hasMultiLines){
       const created=buildOrdersFromLineItems(data,pendingExtraction.line_items);
-      created.forEach(o=>{orders.push(migrateOrder(o));});
+      created.forEach(o=>{const m=migrateOrder(o);orders.push(m);newOnes.push(m);});
       toast(`Saved ${created.length} orders from invoice lines ✓`,'ok');
     }else{
-      const o=migrateOrder({id:nextId(),createdAt:new Date().toISOString().slice(0,10),...data});orders.push(o);toast('Saved ✓','ok');
+      const o=migrateOrder({id:nextId(),createdAt:new Date().toISOString().slice(0,10),...data});orders.push(o);newOnes=[o];toast('Saved ✓','ok');
     }
-    persist();
+    if(!persistResilient(newOnes)){
+      // Roll back the in-memory push so the UI doesn't show an unsaved order.
+      newOnes.forEach(o=>{const i=orders.indexOf(o);if(i>=0)orders.splice(i,1);});
+      toast('Could not save — browser storage is full','err');return;
+    }
     if(window.pendingMemoAfterSave){
       window.pendingMemoAfterSave=false;
       const saved=editId?orders.find(x=>x.id===editId):orders[orders.length-1];
@@ -989,17 +1036,34 @@ function collectLineStyleOverrides(){
   return out;
 }
 
+/** Resolve a line item's metal to one of the form's <select> options. The AI may give
+ *  metal="Gold"+karat="14K Yellow", or put it in the description — combine into "14K
+ *  Yellow Gold" / "Platinum" / "Silver". Returns '' if it can't form a valid option. */
+function lineMetal(li,baseMetal){
+  const u=[li&&li.metal,li&&li.karat,li&&li.description].filter(Boolean).join(' ').toUpperCase();
+  if(/PLATINUM|PT950|PT900|\bPLAT\b/.test(u))return'Platinum';
+  const k=(u.match(/\b(10|14|18|22)\s*K\b/)||[])[1];
+  if(/\bSTERLING\b|\bSILVER\b/.test(u)&&!k)return'Silver';
+  if(k){
+    const c=(u.match(/\b(YELLOW|WHITE|ROSE|PINK)\b/)||[])[1];
+    const color=c?(c==='PINK'?'Rose':c[0]+c.slice(1).toLowerCase()):'';
+    return (k+'K'+(color?' '+color:'')+' Gold').trim();
+  }
+  return baseMetal||'';
+}
 function buildOrdersFromLineItems(baseData,lineItems){
   const out=[];
   let seq=orders.length+1;
   const overrides=collectLineStyleOverrides();
   lineItems.forEach((li,idx)=>{
-    if(!li||!li.description)return;
-    const m=String(li.description).match(/\b([A-Z]{2,5}-?\d{1,4}[A-Z]?)\b/);
-    const styleCode=overrides[idx]|| (m?m[1]:baseData.styleCode);
-    if(!styleCode)return;
-    const metal=(String(li.description).match(/\b(Platinum|14K(?:\s+[A-Za-z]+)?|18K(?:\s+[A-Za-z]+)?|10K(?:\s+[A-Za-z]+)?|Silver)\b/i)||[])[1]||baseData.metal||'';
-    const productType=guessProductType(li.description)||baseData.productType||'Ring';
+    if(!li)return;
+    // Prefer the AI's structured fields (keeps suffixes like SFR-116-A and full metal
+    // like "14K Yellow Gold"); only fall back to parsing the description text.
+    const dm=String(li.description||'').match(/\b([A-Z]{2,5}-?\d{1,4}(?:-?[A-Z0-9])?)\b/);
+    const styleCode=overrides[idx]||(li.styleCode&&String(li.styleCode).trim())||(dm?dm[1]:'')||baseData.styleCode;
+    if(!styleCode && !li.description)return;
+    const metal=lineMetal(li,baseData.metal);
+    const productType=guessProductType(li.description||'')||baseData.productType||'Ring';
     const amountRaw=li.amount!=null?li.amount:(li.line_total!=null?li.line_total:null);
     const castTotal=amountRaw!=null?String(amountRaw):baseData.castTotal||'';
     out.push(migrateOrder({
@@ -1066,12 +1130,20 @@ async function handleFile(e){
     });
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'OCR preview failed');
+    // Surface AI failures (bad key / quota / model) so a "0 fields" result isn't a mystery.
+    if(Array.isArray(data.aiErrors)&&data.aiErrors.length){
+      console.warn('AI errors:',data.aiErrors);
+      toast('AI: '+String(data.aiErrors[0]).slice(0,120),'err');
+    }else if(data.visionUsed&&data.visionUsed!=='ai'){
+      toast('AI did not run (no key / disabled) — check Gemini key','err');
+    }
     if(data.success&&data.extracted)applyExt(data.extracted);
     else toast(data.error||'AI scan failed','err');
     // CAD spec sheets put the beauty render in the TOP-RIGHT quadrant. Crop it out
     // for a clean card thumbnail (the full sheet is still kept as imageUrl for the
     // detail view). Non-rings get a slightly wider crop ("small version").
-    if(scanType==='spec'&&pendingScanImageDataUrl){
+    const isCad=(data&&data.documentKind==='cad_spec')||scanType==='spec';
+    if(isCad&&pendingScanImageDataUrl){
       const pt=(data&&data.extracted&&data.extracted.productType)||($$('f_productType')&&$$('f_productType').value)||'Ring';
       try{pendingCardImageUrl=await cropTopRight(pendingScanImageDataUrl,pt);}catch(_){pendingCardImageUrl=null;}
     }
@@ -1121,6 +1193,27 @@ function cropTopRight(dataUrl,productType){
     };
     img.onerror=()=>reject(new Error('crop decode'));
     img.src=dataUrl;
+  });
+}
+/** Shrink a dataURL for localStorage (the full scan is huge; the detail view only
+ *  needs a readable copy). Falls back to the original on any error. */
+function shrinkDataUrl(dataUrl,maxDim,q){
+  return new Promise((resolve)=>{
+    try{
+      const img=new Image();
+      img.onload=()=>{
+        try{
+          let w=img.naturalWidth,h=img.naturalHeight;
+          const s=Math.min(1,maxDim/Math.max(w,h));
+          w=Math.round(w*s);h=Math.round(h*s);
+          const c=document.createElement('canvas');c.width=w;c.height=h;
+          c.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(c.toDataURL('image/jpeg',q));
+        }catch(_){resolve(dataUrl);}
+      };
+      img.onerror=()=>resolve(dataUrl);
+      img.src=dataUrl;
+    }catch(_){resolve(dataUrl);}
   });
 }
 function compressImageForScan(file){
