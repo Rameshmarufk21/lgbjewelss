@@ -112,16 +112,29 @@ export default function DashboardPage() {
   const [timeScale, setTimeScale] = useState<"week" | "month" | "year">("month");
 
   useEffect(() => {
-    try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem("lgb_orders") : null;
-      const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-      if (Array.isArray(parsed)) setAllOrders(parsed as Order[]);
-    } catch {
-      /* ignore — empty localStorage is fine */
+    function reload() {
+      try {
+        const raw = typeof window !== "undefined" ? window.localStorage.getItem("lgb_orders") : null;
+        const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+        if (Array.isArray(parsed)) setAllOrders(parsed as Order[]);
+      } catch {
+        /* ignore */
+      }
     }
+    reload();
     setCompanies(loadCompanies());
     setCompanyFilter("all");
     setLoaded(true);
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "lgb_orders") reload();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("lgb:orders-updated", reload);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("lgb:orders-updated", reload);
+    };
   }, []);
 
   // Orders scoped to the selected company (or all when "all").

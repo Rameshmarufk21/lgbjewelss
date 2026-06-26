@@ -78,6 +78,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
 export async function DELETE(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  await prisma.product.delete({ where: { id } });
+  try {
+    await prisma.product.delete({ where: { id } });
+  } catch (err: any) {
+    // If the record was already deleted or never existed, treat it as a successful deletion (idempotent)
+    if (err?.code !== "P2025") {
+      return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
+  }
   return NextResponse.json({ ok: true });
 }

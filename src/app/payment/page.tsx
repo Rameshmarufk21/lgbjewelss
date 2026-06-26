@@ -69,20 +69,35 @@ export default function PaymentPage() {
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    setPayments(loadPayments());
-    try {
-      const raw = window.localStorage.getItem("lgb_orders");
-      const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-      if (Array.isArray(parsed)) setOrders(parsed as Order[]);
-    } catch {
-      /* ignore */
+    function reload() {
+      setPayments(loadPayments());
+      try {
+        const raw = window.localStorage.getItem("lgb_orders");
+        const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+        if (Array.isArray(parsed)) setOrders(parsed as Order[]);
+      } catch {
+        /* ignore */
+      }
     }
+    reload();
     const list = loadCompanies();
     setCompanies(list);
     const active = loadActiveCompany();
     setCompanyFilter("all");
     setCompany(active && active !== "all" ? active : list[0]?.id || "lgb");
     setLoaded(true);
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "lgb_orders" || e.key === "lgb_payments") reload();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("lgb:orders-updated", reload);
+    window.addEventListener("lgb:payments-updated", reload);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("lgb:orders-updated", reload);
+      window.removeEventListener("lgb:payments-updated", reload);
+    };
   }, []);
 
   // Payments scoped to the selected company (legacy untagged → lgb).

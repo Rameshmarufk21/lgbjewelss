@@ -62,14 +62,27 @@ export default function HistoryPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem("lgb_orders");
-      const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-      if (Array.isArray(parsed)) setOrders(parsed as Order[]);
-    } catch {
-      /* empty / invalid storage — fine */
+    function reload() {
+      try {
+        const raw = window.localStorage.getItem("lgb_orders");
+        const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+        if (Array.isArray(parsed)) setOrders(parsed as Order[]);
+      } catch {
+        /* empty / invalid storage — fine */
+      }
     }
+    reload();
     setLoaded(true);
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "lgb_orders") reload();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("lgb:orders-updated", reload);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("lgb:orders-updated", reload);
+    };
   }, []);
 
   const completed = useMemo(
