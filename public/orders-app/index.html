@@ -158,10 +158,10 @@ input,select,textarea{font-family:var(--sans);outline:none}
 .card-by{font-size:.75rem;color:var(--text2);margin-top:7px;display:flex;align-items:center;gap:5px}
 .dot{width:20px;height:20px;border-radius:50%;font-size:.6rem;font-weight:700;color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .dk{background:#0F5F5F}.ds{background:#7C3AED}.dsh{background:#BE185D}.dkh{background:#B45309}.do{background:#6B7280}
-.card-foot{padding:8px 14px 12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);margin-top:8px;position:relative;z-index:1}
-.card-vendor{font-size:.68rem;color:var(--text3);font-style:italic}
-.card-cost{font-size:.82rem;font-weight:700;color:var(--peacock)}
-.card-cost.nc{color:var(--text3);font-weight:400;font-style:italic}
+.card-price-row{padding:8px 0 2px;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--border);margin-top:10px;position:relative;z-index:1}
+.card-price-lbl{font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.card-cost-large{font-size:1.2rem;font-weight:800;color:var(--peacock)}
+.card-cost-large.nc{font-size:.82rem;color:var(--text3);font-weight:400;font-style:italic}
 
 .list-hd{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:10px;padding:6px 16px;font-size:.67rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
 .orders-list{display:flex;flex-direction:column;gap:5px}
@@ -334,7 +334,7 @@ textarea.fc{resize:vertical;min-height:68px}
   .cards-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .card-body{padding:10px 11px 6px}
   .card-name{font-size:.92rem}
-  .card-foot{padding:7px 11px 10px}
+  .card-price-row{padding:6px 0 2px}
   .card-img::after{content:none}
 }
 @media(max-width:380px){
@@ -405,6 +405,9 @@ textarea.fc{resize:vertical;min-height:68px}
         <div class="sdrop-icon">📷</div>
         <div class="sdrop-lbl">Tap to photograph or upload document</div>
         <div class="sdrop-sub">Auto-detects CAD specs &amp; invoices — an invoice with N products makes N cards (you can select multiple images)</div>
+        <div style="margin-top: 10px; position: relative; z-index: 10;">
+          <div id="pasteZone" contenteditable="true" onclick="event.stopPropagation()" style="min-height:36px; padding:6px 12px; font-size:13px; text-align:center; border:1px dashed var(--border); border-radius:var(--radius-sm); background:#fff; color:var(--text2); cursor:text; outline:none;">Tap here and paste image</div>
+        </div>
         <div id="scanPreview" style="display:none;margin-top:12px"></div>
       </div>
       <div class="aiprog" id="aiprog"><div class="spin"></div> Reading with AI…</div>
@@ -416,7 +419,7 @@ textarea.fc{resize:vertical;min-height:68px}
       <div class="fg"><label>Product Type *</label><select class="fc" id="f_productType"><option value="">Select…</option><option>Ring</option><option>Bracelet</option><option>Earring</option><option>Necklace</option><option>Pendant</option><option>Bangle</option><option>Other</option></select></div>
       <div class="fg"><label>Metal</label><select class="fc" id="f_metal"><option value="">Select…</option><option>Platinum</option><option>14K White Gold</option><option>14K Yellow Gold</option><option>14K Rose Gold</option><option>18K White Gold</option><option>18K Yellow Gold</option><option>10K White Gold</option><option>Silver</option></select></div>
       <div class="fg"><label>Size</label><input class="fc" id="f_size" placeholder="e.g. 10-US"></div>
-      <div class="fg"><label>Placed By</label><select class="fc" id="f_placedBy"><option value="">Select…</option><option>Kunal</option><option>Sagar</option><option>Shweta</option><option>Khushi</option><option>Other</option></select></div>
+      <div class="fg"><label>Placed By</label><select class="fc" id="f_placedBy" onchange="onPlacedByChange()"><option value="">Select…</option><option>Kunal</option><option>Sagar</option><option>Shweta</option><option>Khushi</option><option>Other</option></select></div>
       <div class="fg"><label>Status</label><select class="fc" id="f_status"><option value="Inquiry">Inquiry</option><option value="Casting">Casting</option><option value="At Setter">At Setter</option><option value="Hold">Hold</option><option value="Blocked">Blocked</option><option value="Completed">Completed</option></select></div>
     </div></div>
     <div id="sec_casting"><div class="slabel">Casting</div><div class="fg3" style="margin-top:10px">
@@ -430,28 +433,33 @@ textarea.fc{resize:vertical;min-height:68px}
       <div class="fg"><label>Picked Up By</label><input class="fc" id="f_castPickup" placeholder="Name"></div>
       <div class="fg"><label>Pickup Date</label><input class="fc" type="date" id="f_castPickupDate"></div>
     </div></div>
-    <div id="sec_stones"><div class="slabel">Stones</div><div class="fg2" style="margin-top:10px">
-      <div class="fg"><label>Shape</label><select class="fc" id="f_stoneShape"><option value="">Select…</option><option>Round (RND)</option><option>Oval</option><option>Marquise (MQ)</option><option>Princess</option><option>Cushion</option><option>Pear</option><option>Emerald</option><option>Radiant</option><option>Baguette</option><option>Mixed</option></select></div>
-      <div class="fg"><label>Color</label><select class="fc" id="f_stoneColor"><option value="White">White (default)</option><option>Yellow</option><option>Pink</option><option>Blue</option><option>Green</option><option>Black</option><option>Champagne</option></select></div>
-      <div class="fg"><label>Sieve</label><input class="fc" id="f_stoneSieve" placeholder="+1.5-2.0"></div>
-      <div class="fg"><label>MM Size</label><input class="fc" id="f_stoneMM" placeholder="1.2 or 13.92x9.71"></div>
-      <div class="fg"><label>Qty (pcs)</label><input class="fc" id="f_stonePcs" placeholder="38"></div>
-      <div class="fg"><label>Total Carats</label><input class="fc" id="f_stoneCt" placeholder="9.04"></div>
-      <div class="fg"><label>Price / Ct $</label><input class="fc" id="f_stonePrice" placeholder="123"></div>
-      <div class="fg"><label>Stone Total $</label><input class="fc" id="f_stoneTotal" placeholder="auto or manual"></div>
-      <div class="fg"><label>Lot #</label><input class="fc" id="f_stoneLot" placeholder="39"></div>
-      <div class="fg"><label>Cert # (IGI/GIA)</label><input class="fc" id="f_stoneCert" placeholder="Optional"></div>
-    </div></div>
+    <div id="sec_stones">
+      <div class="slabel">Stones</div>
+      <div class="fg2" style="margin-top:10px">
+        <div class="fg"><label>Shape</label><select class="fc" id="f_stoneShape"><option value="">Select…</option><option>Round (RND)</option><option>Oval</option><option>Marquise (MQ)</option><option>Princess</option><option>Cushion</option><option>Pear</option><option>Emerald</option><option>Radiant</option><option>Baguette</option><option>Mixed</option></select></div>
+        <div class="fg"><label>Color</label><select class="fc" id="f_stoneColor"><option value="White">White (default)</option><option>Yellow</option><option>Pink</option><option>Blue</option><option>Green</option><option>Black</option><option>Champagne</option></select></div>
+        <div class="fg"><label>MM Size</label><input class="fc" id="f_stoneMM" placeholder="1.2 or 13.92x9.71"></div>
+        <div class="fg"><label>Qty (pcs)</label><input class="fc" id="f_stonePcs" placeholder="38"></div>
+        <div class="fg"><label>Total Carats</label><input class="fc" id="f_stoneCt" placeholder="9.04"></div>
+        <div class="fg"><label>Price / Ct $</label><input class="fc" id="f_stonePrice" placeholder="123"></div>
+        <div class="fg"><label>Stone Total $</label><input class="fc" id="f_stoneTotal" placeholder="auto or manual"></div>
+        <div class="fg"><label>Cert # (IGI/GIA)</label><input class="fc" id="f_stoneCert" placeholder="Optional"></div>
+      </div>
+      <div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px">
+        <div style="font-weight:600;font-size:.8rem;color:var(--text2)">Multiple Stones Intake List</div>
+        <div class="slist" id="sList" style="margin-top:6px"></div>
+        <button class="btn-ax" type="button" style="margin-top:7px" onclick="addStoneRow()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add Stone Line
+        </button>
+      </div>
+    </div>
     <div id="sec_setting"><div class="slabel">Setting</div><div class="fg3" style="margin-top:10px">
       <div class="fg"><label>Setter</label><select class="fc" id="f_setter"><option value="">Select…</option><option>Victor</option><option>JYMP</option><option>Edwin</option><option>MC Production</option><option>Other</option></select></div>
       <div class="fg"><label>Invoice #</label><input class="fc" id="f_setInvoice" placeholder="10449"></div>
       <div class="fg"><label>Date</label><input class="fc" type="date" id="f_setDate"></div>
       <div class="fg"><label>Setting $</label><input class="fc" id="f_setPrice" placeholder="2.50"></div>
-      <div class="fg"><label>Labor $</label><input class="fc" id="f_setLabor" placeholder="15.00"></div>
-      <div class="fg"><label>Laser $</label><input class="fc" id="f_setLaser" placeholder="0"></div>
-      <div class="fg"><label>Set Total $</label><input class="fc" id="f_setTotal" placeholder="35.00"></div>
       <div class="fg"><label>Job Type</label><input class="fc" id="f_setJob" placeholder="Setting & Repair"></div>
-      <div class="fg"><label>ST # (stones)</label><input class="fc" id="f_setST" placeholder="8"></div>
     </div></div>
     <div>
       <div class="slabel">Extras / Complications</div>
@@ -528,6 +536,12 @@ function migrateOrder(o){
     issueAckIntentionalDuplicate:false,
     issueAckIsRework:false
   },o);
+  const p = (base.placedBy || "").trim().toLowerCase();
+  if (p === 'sagar') {
+    base.company = 'sakk';
+  } else if (['khushi', 'kunal', 'shweta'].includes(p)) {
+    base.company = 'lgb';
+  }
   if(!COMPANY_IDS.includes(base.company))base.company='lgb';
   return base;
 }
@@ -561,7 +575,7 @@ function nextId(){return 'ORD-'+String(orders.length+1).padStart(3,'0');}
 function $$(id){return document.getElementById(id);}
 function fmt$(v){return v?'$'+parseFloat(v).toFixed(2):'—';}
 function fmtD(d){if(!d)return'—';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});}
-function totalCost(o){const t=(parseFloat(o.castTotal)||0)+(parseFloat(o.stoneTotal)||0)+(parseFloat(o.setTotal)||0)+(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0);return t>0?t:null;}
+function totalCost(o){const t=(parseFloat(o.castTotal)||0)+(parseFloat(o.stoneTotal)||0)+(parseFloat(o.setPrice)||0)+(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0);return t>0?t:null;}
 function dotCls(n){return n?(DOTCLS[n.toLowerCase()]||'do'):'do';}
 function ini(n){return n?n[0].toUpperCase():'?';}
 
@@ -795,7 +809,7 @@ function renderOrders(){
   c.innerHTML=html;
 }
 function emptyHTML(){return`<div class="empty"><span class="empty-mark" aria-hidden></span><p>No orders found</p></div>`;}
-function cardHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'',img=(o.cardImageUrl||o.imageUrl)?`<img class="card-photo" src="${o.cardImageUrl||o.imageUrl}" alt="${(o.styleCode||'order image').replace(/"/g,'&quot;')}">`:`<div class="card-placeholder"><img src="assets/card-diamond.png" alt="LabGrownBox logo"><span>${o.productType||'Item'}</span></div>`;return`<div class="order-card${ec}" onclick="openDetail('${o.id}')"><div class="card-img">${img}<span class="badge ${b}">${o.status}</span><button class="card-del" title="Delete order" onclick="event.stopPropagation();deleteOrder('${o.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div><div class="card-body"><span class="card-date">${fmtD(o.createdAt)}</span><div class="card-name">${o.productType||'—'}${o.metal?' · '+o.metal:''}</div><div class="card-code">${o.styleCode||'—'}</div><div class="card-by"><div class="dot ${dc}">${ini(o.placedBy)}</div>${o.placedBy||'Unknown'}</div></div><div class="card-foot"><span class="card-vendor">${o.castVendor||o.setter||'—'}</span><span class="card-cost ${cost?'':'nc'}">${cost?fmt$(cost):'No cost yet'}</span></div></div>`;}
+function cardHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'',img=(o.cardImageUrl||o.imageUrl)?`<img class="card-photo" src="${o.cardImageUrl||o.imageUrl}" alt="${(o.styleCode||'order image').replace(/"/g,'&quot;')}">`:`<div class="card-placeholder"><img src="assets/card-diamond.png" alt="LabGrownBox logo"><span>${o.productType||'Item'}</span></div>`;return`<div class="order-card${ec}" onclick="openDetail('${o.id}')"><div class="card-img">${img}<span class="badge ${b}">${o.status}</span><button class="card-del" title="Delete order" onclick="event.stopPropagation();deleteOrder('${o.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div><div class="card-body"><span class="card-date">${fmtD(o.createdAt)}</span><div class="card-name">${o.styleCode||'—'}</div><div class="card-code">${o.productType||'—'}${o.metal?' · '+o.metal:''}</div><div class="card-by"><div class="dot ${dc}">${ini(o.placedBy)}</div>${o.placedBy||'Unknown'}</div><div class="card-price-row"><span class="card-price-lbl">Total Cost</span><span class="card-cost-large ${cost?'':'nc'}">${cost?fmt$(cost):'No cost yet'}</span></div></div></div>`;}
 function listHTML(o){const cost=totalCost(o),b=BADGE[o.status]||'b-inquiry',dc=dotCls(o.placedBy),err=orderHasErrors(o),ec=err?' order-card--err':'';return`<div class="list-row${ec}" onclick="openDetail('${o.id}')"><div><div class="ln">${o.productType||'—'} · ${o.styleCode}</div><div class="ls">${o.id} · <span style="display:inline-flex;align-items:center;gap:3px"><span class="dot ${dc}" style="width:15px;height:15px;font-size:.58rem">${ini(o.placedBy)}</span>${o.placedBy||'—'}</span></div></div><div><span class="list-badge ${b}">${o.status}</span></div><div class="lc">${o.castVendor||'—'}</div><div class="lc">${o.setter||'—'}</div><div class="lv">${cost?fmt$(cost):'—'}</div><div class="lc">${fmtD(o.createdAt)}</div></div>`;}
 
 function escHtml(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -855,12 +869,29 @@ function openDetail(id){
   $$('dBody').innerHTML=`<div class="dsections">
     ${issueBox}
     <div class="dbox"><div class="dbox-hd">Progress</div><div class="stepper">${STEPS.map((s,i)=>`<div class="step ${i<si?'done':i===si?'active':''}"><div class="sdot">${i<si?'✓':i+1}</div><div class="slbl">${s}</div></div>`).join('')}</div></div>
-    <div class="cost-bar">${ci_('Casting',o.castTotal)}${ci_('Stones',o.stoneTotal)}${ci_('Setting',o.setTotal)}${ci_('Extras',ext||null)}<div class="ci"><div class="cil">Total</div><div class="civ">${cost?fmt$(cost):'—'}</div></div></div>
+    <div class="cost-bar">${ci_('Casting',o.castTotal)}${ci_('Stones',o.stoneTotal)}${ci_('Setting',o.setPrice)}${ci_('Extras',ext||null)}<div class="ci"><div class="cil">Total</div><div class="civ">${cost?fmt$(cost):'—'}</div></div></div>
     <div class="dbox"><div class="dbox-hd">Update Status</div><div class="stbtns">${['Inquiry','Casting','At Setter','Hold','Blocked','Completed'].map(s=>`<button class="stbtn ${o.status===s?'cur':''}" onclick="setStatus('${id}','${s}')">${s}</button>`).join('')}</div></div>
     <div class="dbox"><div class="dbox-hd">Order Info</div><div class="dgrid">${dc_('Company',companyName(o.company),'hi')}${dc_('Style Code',o.styleCode,'gold')}${dc_('Product',o.productType)}${dc_('Metal',o.metal)}${dc_('Size',o.size)}${dc_('Placed By',o.placedBy)}${dc_('Linked prior',o.linkedOrderId)}${dc_('Created',fmtD(o.createdAt))}</div></div>
     <div class="dbox"><div class="dbox-hd">Casting</div><div class="dgrid">${dc_('Vendor',o.castVendor)}${dc_('Invoice #',o.castInvoice)}${dc_('Date',fmtD(o.castDate))}${dc_('DWT',o.castDWT)}${dc_('Grams',o.castGrams)}${dc_('Print Fee',fmt$(o.castPrint))}${dc_('Total',fmt$(o.castTotal),'hi')}${dc_('Picked Up By',o.castPickup)}${dc_('Pickup Date',fmtD(o.castPickupDate))}</div></div>
-    <div class="dbox"><div class="dbox-hd">Stones</div><div class="dgrid">${dc_('Shape',o.stoneShape)}${dc_('Color',o.stoneColor)}${dc_('Sieve',o.stoneSieve)}${dc_('MM Size',o.stoneMM)}${dc_('Pcs',o.stonePcs)}${dc_('Carats',o.stoneCt)}${dc_('Price/ct',fmt$(o.stonePrice))}${dc_('Stone Total',fmt$(o.stoneTotal),'hi')}${dc_('Lot #',o.stoneLot)}${dc_('Cert #',o.stoneCert)}</div></div>
-    <div class="dbox"><div class="dbox-hd">Setting</div><div class="dgrid">${dc_('Setter',o.setter)}${dc_('Invoice #',o.setInvoice)}${dc_('Date',fmtD(o.setDate))}${dc_('Setting $',fmt$(o.setPrice))}${dc_('Labor $',fmt$(o.setLabor))}${dc_('Laser $',fmt$(o.setLaser))}${dc_('Job Type',o.setJob)}${dc_('ST #',o.setST)}${dc_('Total',fmt$(o.setTotal),'hi')}</div></div>
+    <div class="dbox">
+      <div class="dbox-hd">Stones</div>
+      ${(() => {
+        let extraStones = '';
+        if (Array.isArray(o.stones) && o.stones.length) {
+          extraStones = `<div class="dcell" style="grid-column:span 3;border-right:none;border-bottom:none;background:var(--cream3);padding:12px 14px">`
+            + `<div style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--peacock);margin-bottom:6px">Multiple Stones</div>`
+            + `<div style="display:flex;flex-direction:column;gap:6px">`
+            + o.stones.map(s => `<div style="font-size:.78rem;display:flex;justify-content:space-between;border-bottom:1px dashed var(--border);padding-bottom:4px;color:var(--text2)">`
+              + `<span><strong>${escHtml(s.category||s.itemCategory||'Diamond')}</strong> · ${escHtml(s.shape||'—')} · ${s.carat||s.carats||'?'}ct · ${escHtml(s.colorGrade||s.color||'—')}${s.clarityGrade ? '/' + escHtml(s.clarityGrade) : ''} · ${escHtml(s.sourcing||'Loose')} ${s.certificateNumber ? `(Cert: ${escAttr(s.certificateNumber)})` : ''} ${s.supplier ? `from ${escHtml(s.supplier)}` : ''}</span>`
+              + `<strong style="color:var(--peacock2);font-variant-numeric:tabular-nums">${s.cost ? fmt$(s.cost) : '—'}</strong>`
+            + `</div>`).join('')
+            + `</div>`
+            + `</div>`;
+        }
+        return `<div class="dgrid">${dc_('Shape',o.stoneShape)}${dc_('Color',o.stoneColor)}${dc_('MM Size',o.stoneMM)}${dc_('Pcs',o.stonePcs)}${dc_('Carats',o.stoneCt)}${dc_('Price/ct',fmt$(o.stonePrice))}${dc_('Stone Total',fmt$(o.stoneTotal),'hi')}${dc_('Cert #',o.stoneCert)}${extraStones}</div>`;
+      })()}
+    </div>
+    <div class="dbox"><div class="dbox-hd">Setting</div><div class="dgrid">${dc_('Setter',o.setter)}${dc_('Invoice #',o.setInvoice)}${dc_('Date',fmtD(o.setDate))}${dc_('Setting $',fmt$(o.setPrice))}${dc_('Job Type',o.setJob)}</div></div>
     ${(o.extras||[]).length?`<div class="dbox"><div class="dbox-hd">Extras / Complications</div><div class="dgrid">${o.extras.map(e=>`<div class="dcell" style="grid-column:span 2"><div class="dclabel">Item</div><div class="dcval">${e.desc}</div></div>${dc_('Cost',fmt$(e.cost),'hi')}`).join('')}</div></div>`:''}
     ${o.notes?`<div class="dbox"><div class="dbox-hd">Notes</div><div style="padding:10px 14px;font-size:.84rem;color:var(--text2);line-height:1.6">${o.notes}</div></div>`:''}
     ${imgs.length?`<div class="qv-wrap"><div class="qv-hd">Quick View Images</div><div class="qv-grid">${imgs.map((u,i)=>`<button class="qv-item" type="button" onclick="openImage('${encodeURIComponent(u)}')"><img src="${u}" alt="Order image ${i+1}"><div class="qv-cap">Image ${i+1}</div></button>`).join('')}</div></div>`:''}
@@ -930,16 +961,85 @@ function openMemoCreate(){
   renderMemoPick(pool);
   openOverlay('memoPickOverlay');
 }
-function setStatus(id,s){const o=orders.find(x=>x.id===id);if(!o)return;o.status=s;persist();openDetail(id);render();toast(`Status → ${s}`,'ok');}
-function deleteOrder(id){if(!confirm('Delete this order?'))return;orders=orders.filter(o=>o.id!==id);persist();closeOverlay('detailOverlay');render();toast('Order deleted','err');}
+function setStatus(id,s){const o=orders.find(x=>x.id===id);if(!o)return;o.status=s;persist();openDetail(id);render();toast(`Status → ${s}`,'ok');pushOrderToServer(o);}
+function deleteOrder(id){if(!confirm('Delete this order?'))return;orders=orders.filter(o=>o.id!==id);persist();closeOverlay('detailOverlay');render();toast('Order deleted','err');fetch('/api/products/'+id,{method:'DELETE'}).catch(e=>console.error(e));}
+
+function addStoneRow(cat='', shape='', col='', clar='', ct='', src='', cert='', lab='', sup='', cost='', note=''){
+  const r=document.createElement('div');
+  r.className='srow';
+  r.style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin-top:6px;border-bottom:1px dashed var(--border);padding-bottom:6px;";
+  r.innerHTML=`
+    <select class="fc scat" style="font-size:.78rem">
+      <option value="diamond" ${cat==='diamond'?'selected':''}>Diamond</option>
+      <option value="colored_stone" ${cat==='colored_stone'?'selected':''}>Colored</option>
+      <option value="melee" ${cat==='melee'?'selected':''}>Melee</option>
+      <option value="other" ${cat==='other'?'selected':''}>Other</option>
+    </select>
+    <input class="fc sshape" placeholder="Shape" value="${shape||''}" style="font-size:.78rem">
+    <input class="fc scol" placeholder="Color" value="${col||''}" style="font-size:.78rem">
+    <input class="fc sclar" placeholder="Clarity" value="${clar||''}" style="font-size:.78rem">
+    <input class="fc sct" type="number" step="0.001" placeholder="Ct" value="${ct||''}" style="font-size:.78rem">
+    <select class="fc ssrc" style="font-size:.78rem">
+      <option value="loose" ${src==='loose'?'selected':''}>Loose</option>
+      <option value="certified" ${src==='certified'?'selected':''}>Cert</option>
+    </select>
+    <input class="fc scert" placeholder="Cert #" value="${cert||''}" style="font-size:.78rem">
+    <input class="fc slab" placeholder="Lab" value="${lab||''}" style="font-size:.78rem">
+    <input class="fc ssup" placeholder="Supplier" value="${sup||''}" style="font-size:.78rem">
+    <input class="fc scost" type="number" step="0.01" placeholder="Cost $" value="${cost||''}" style="font-size:.78rem">
+    <input class="fc snote" placeholder="Notes" value="${note||''}" style="font-size:.78rem;grid-column:span 2">
+    <button class="btn-rm" onclick="this.parentElement.remove()" style="grid-column:span 1; cursor:pointer">✕</button>
+  `;
+  $$('sList').appendChild(r);
+}
+
+async function syncWithServer() {
+  try {
+    const res = await fetch('/api/products/sync');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.orders)) {
+      const byId = {};
+      orders.forEach((o, i) => { if(o.id) byId[o.id] = i; });
+      let changed = false;
+      data.orders.forEach(srv => {
+        if (!srv.id) return;
+        const idx = byId[srv.id];
+        if (idx !== undefined) {
+          orders[idx] = Object.assign({}, orders[idx], srv);
+        } else {
+          orders.push(srv);
+          changed = true;
+        }
+      });
+      if (changed || data.orders.length > 0) {
+        persist();
+        render();
+      }
+    }
+  } catch (err) {
+    console.error('Failed to sync with server:', err);
+  }
+}
+
+async function pushOrderToServer(o) {
+  try {
+    await fetch('/api/products/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: o })
+    });
+  } catch (err) {
+    console.error('Failed to push order to server:', err);
+  }
+}
 
 function openNewOrder(){editId=null;clearForm();$$('newTitle').textContent='New Order';openOverlay('newOrderOverlay');}
 function editCurrent(){const o=orders.find(x=>x.id===editId);if(!o)return;closeOverlay('detailOverlay');clearForm();fillForm(o);$$('newTitle').textContent='Edit — '+o.id;openOverlay('newOrderOverlay');}
 function populateCompanySelect(){const el=$$('f_company');if(!el)return;el.innerHTML=companies.map(c=>`<option value="${escAttr(c.id)}">${escHtml(c.name)}</option>`).join('');}
 /* Who can place orders, per company. Sakk Fine Jewelry: Sagar only. */
-const DEFAULT_PLACERS=['Kunal','Sagar','Shweta','Khushi','Other'];
-const COMPANY_PLACERS={sakk:['Sagar']};
-function placersFor(companyId){return (COMPANY_PLACERS[companyId]||DEFAULT_PLACERS).slice();}
+const COMPANY_PLACERS={sakk:['Sagar'], lgb:['Khushi','Kunal','Shweta','Other']};
+function placersFor(companyId){return (COMPANY_PLACERS[companyId]||['Kunal','Sagar','Shweta','Khushi','Other']).slice();}
 function populatePlacedBy(companyId,selected){
   const el=$$('f_placedBy');if(!el)return;
   const base=placersFor(companyId);
@@ -955,36 +1055,64 @@ function onCompanyChange(){
   const cur=$$('f_placedBy')?$$('f_placedBy').value:'';
   populatePlacedBy(c, placersFor(c).includes(cur)?cur:'');
 }
-function clearForm(){populateCompanySelect();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});const cc=$$('f_company');if(cc)cc.value=activeCompany;populatePlacedBy(activeCompany,'');$$('xList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingCardImageUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';
+function onPlacedByChange(){
+  const pEl=$$('f_placedBy');const cEl=$$('f_company');if(!pEl||!cEl)return;
+  const p=pEl.value;
+  if(p==='Sagar') {
+    cEl.value='sakk';
+  } else if(['Khushi','Kunal','Shweta'].includes(p)) {
+    cEl.value='lgb';
+  }
+}
+function clearForm(){populateCompanySelect();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)el.value='';});const cc=$$('f_company');if(cc)cc.value=activeCompany;populatePlacedBy(activeCompany,'');$$('xList').innerHTML='';$$('sList').innerHTML='';$$('airesult').classList.remove('show');pendingScanImageDataUrl=null;pendingCardImageUrl=null;pendingExtraction=null;updateScanPreview();const fi=$$('fInput');if(fi)fi.value='';
   // Reset the scan mode to Auto-detect on every open.
   scanType='auto';const tabs=document.querySelectorAll('.stab');tabs.forEach((b,i)=>b.classList.toggle('active',i===0));}
-function fillForm(o){clearForm();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el&&o[k])el.value=o[k];});populatePlacedBy(o.company||activeCompany,o.placedBy||'');(o.extras||[]).forEach(e=>addExtra(e.desc,e.cost));}
+function fillForm(o){clearForm();FKEYS.forEach(k=>{const el=$$('f_'+k);if(el&&o[k])el.value=o[k];});populatePlacedBy(o.company||activeCompany,o.placedBy||'');(o.extras||[]).forEach(e=>addExtra(e.desc,e.cost));
+  if(Array.isArray(o.stones)) {
+    o.stones.forEach(s => addStoneRow(s.category||s.itemCategory, s.shape, s.colorGrade||s.color, s.clarityGrade||s.clarity, s.carat||s.carats, s.sourcing, s.certificateNumber||s.certNumber, s.certificateLab||s.certLab, s.supplier, s.cost||s.costCents/100, s.notes));
+  }
+}
 async function saveOrder(){
-  // Any invoice with 2+ product lines → one card per line (the AI decides the doc type,
-  // not the tab). A CAD spec has no line_items, so it stays a single card.
   const hasMultiLines=pendingExtraction && Array.isArray(pendingExtraction.line_items) && pendingExtraction.line_items.length>1;
   const sc=$$('f_styleCode').value.trim();
   if(!sc && !hasMultiLines){toast('Style code required','err');return;}
   const extras=Array.from(document.querySelectorAll('.xrow')).map(r=>({desc:r.querySelector('.xd').value,cost:r.querySelector('.xc').value})).filter(e=>e.desc);
-  const data={extras};FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)data[k]=el.value;});
-  // Store a downsized copy of the document (the full scan is too big for localStorage).
+  
+  const stones = Array.from(document.querySelectorAll('.srow')).map(r => ({
+    category: r.querySelector('.scat').value,
+    shape: r.querySelector('.sshape').value,
+    colorGrade: r.querySelector('.scol').value,
+    clarityGrade: r.querySelector('.sclar').value,
+    carat: r.querySelector('.sct').value ? Number(r.querySelector('.sct').value) : null,
+    sourcing: r.querySelector('.ssrc').value,
+    certificateNumber: r.querySelector('.scert').value,
+    certificateLab: r.querySelector('.slab').value,
+    supplier: r.querySelector('.ssup').value,
+    cost: r.querySelector('.scost').value ? Number(r.querySelector('.scost').value) : null,
+    notes: r.querySelector('.snote').value
+  })).filter(s => s.shape || s.category);
+
+  const data={extras, stones};
+  FKEYS.forEach(k=>{const el=$$('f_'+k);if(el)data[k]=el.value;});
+  if(stones.length) {
+    const totalCt = stones.reduce((a, s) => a + (Number(s.carat) || 0), 0);
+    const totalCostVal = stones.reduce((a, s) => a + (Number(s.cost) || 0), 0);
+    if(totalCt > 0) data.stoneCt = String(totalCt);
+    if(totalCostVal > 0) data.stoneTotal = String(totalCostVal);
+  }
+
   if(pendingScanImageDataUrl){
     const shrunk=await shrinkDataUrl(pendingScanImageDataUrl,1100,0.6);
     if(editId){
-      // Editing: a new scan (e.g. adding the MTA casting invoice to a CAD order) is an
-      // ADDITIONAL document — append it to the gallery. Do NOT replace the original
-      // primary/card image, so the ring render stays the card and isn't swapped out.
       const ex=orders.find(o=>o.id===editId)||{};
       data.imageUrls=[...(Array.isArray(ex.imageUrls)?ex.imageUrls:[]),shrunk];
-      if(!ex.imageUrl)data.imageUrl=shrunk; // only set a primary if the order had none
+      if(!ex.imageUrl)data.imageUrl=shrunk;
     }else{
       data.imageUrl=shrunk;
     }
   }
-  // The card thumbnail only ever comes from a product render (CAD/spec crop) — an
-  // invoice photo must never overwrite it.
   if(pendingCardImageUrl)data.cardImageUrl=pendingCardImageUrl;
-  if(pendingExtraction && Array.isArray(pendingExtraction.stones) && pendingExtraction.stones.length){
+  if(pendingExtraction && Array.isArray(pendingExtraction.stones) && pendingExtraction.stones.length && !stones.length){
     data.stones=pendingExtraction.stones.map(s=>({
       position:s&&typeof s.position==='string'?s.position:'',
       shape:s&&typeof s.shape==='string'?s.shape:'',
@@ -1005,9 +1133,10 @@ async function saveOrder(){
       const o=migrateOrder({id:nextId(),createdAt:new Date().toISOString().slice(0,10),...data});orders.push(o);newOnes=[o];toast('Saved ✓','ok');
     }
     if(!persistResilient(newOnes)){
-      // Roll back the in-memory push so the UI doesn't show an unsaved order.
       newOnes.forEach(o=>{const i=orders.indexOf(o);if(i>=0)orders.splice(i,1);});
       toast('Could not save — browser storage is full','err');return;
+    } else {
+      newOnes.forEach(o => void pushOrderToServer(o));
     }
     if(window.pendingMemoAfterSave){
       window.pendingMemoAfterSave=false;
@@ -1111,8 +1240,7 @@ function setScan(btn,t){
     sec.classList.remove('sec-flash');void sec.offsetWidth;sec.classList.add('sec-flash');
   }
 }
-async function handleFile(e){
-  const files=Array.from((e.target&&e.target.files)||[]);
+async function processFilesArray(files){
   if(!files.length)return;
   $$('aiprog').classList.add('show');$$('airesult').classList.remove('show');
   try{
@@ -1152,6 +1280,10 @@ async function handleFile(e){
   }finally{
     $$('aiprog').classList.remove('show');const fi=$$('fInput');if(fi)fi.value='';
   }
+}
+async function handleFile(e){
+  const files=Array.from((e.target&&e.target.files)||[]);
+  await processFilesArray(files);
 }
 function updateScanPreview(){
   const box=$$('scanPreview');if(!box)return;
@@ -1281,90 +1413,32 @@ function toB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.o
  * it natively, with NO external library / CDN. Numbers stay numeric, two
  * sheets (Orders + Vendors) so the dashboard breakdown lives alongside.
  */
-function downloadExcel(){
+async function downloadExcel(){
   if(!orders.length){toast('No orders to export','err');return;}
-  const num=(v)=>{const n=parseFloat(v);return Number.isFinite(n)?n:null;};
-  const ordersHdrs=['Order ID','Style Code','Product','Metal','Size','Status','Placed By','Created','Cast Vendor','Cast Invoice','Cast Date','Cast DWT','Cast Grams','Print Fee','Cast Total','Stone Shape','Stone Color','Stone Pcs','Stone Ct','Price/Ct','Stone Total','Setter','Set Invoice','Set Date','Set Price','Labor','Set Total','Extras','Extras Total','Notes','Grand Total'];
-  const ordersWidths=[60,80,70,110,60,75,80,80,130,90,80,60,70,70,80,100,80,60,60,60,80,90,80,80,70,55,75,260,80,260,80];
-  const vendorHdrs=['Vendor','Orders','Total Cast $'];
-  const vendorWidths=[180,70,110];
-  const rowsFor=(list)=>list.map(o=>{
-    const cost=totalCost(o);
-    const et=(o.extras||[]).reduce((a,e)=>a+(parseFloat(e.cost)||0),0);
-    const ed=(o.extras||[]).map(e=>`${e.desc}${e.cost?' ($'+e.cost+')':''}`).join(' | ');
-    return [
-      o.id||'',o.styleCode||'',o.productType||'',o.metal||'',o.size||'',
-      o.status||'',o.placedBy||'',o.createdAt||'',
-      o.castVendor||'',o.castInvoice||'',o.castDate||'',
-      num(o.castDWT),num(o.castGrams),num(o.castPrint),num(o.castTotal),
-      o.stoneShape||'',o.stoneColor||'',
-      num(o.stonePcs),num(o.stoneCt),num(o.stonePrice),num(o.stoneTotal),
-      o.setter||'',o.setInvoice||'',o.setDate||'',
-      num(o.setPrice),num(o.setLabor),num(o.setTotal),
-      ed,et||null,(o.notes||'').replace(/\s+/g,' ').trim(),cost||null,
-    ];
-  });
-  const vendorsFor=(list)=>{
-    const vt={};
-    list.forEach(o=>{
-      const v=(o.castVendor||'').trim()||'(none)';
-      if(!vt[v])vt[v]={Vendor:v,Orders:0,Total:0};
-      vt[v].Orders+=1;
-      const ct=parseFloat(o.castTotal);if(Number.isFinite(ct))vt[v].Total+=ct;
+  toast('Exporting Excel...','info');
+  try {
+    const res = await fetch('/api/excel/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders })
     });
-    return Object.values(vt).sort((a,b)=>b.Orders-a.Orders).map(v=>[v.Vendor,v.Orders,v.Total]);
-  };
-  const downloadOne=(fname,list)=>{
-    const vendorRows=vendorsFor(list);
-    const xml=buildSpreadsheetML([
-      {name:'Orders',headers:ordersHdrs,rows:rowsFor(list),widths:ordersWidths},
-      ...(vendorRows.length?[{name:'Vendors',headers:vendorHdrs,rows:vendorRows,widths:vendorWidths}]:[]),
-    ]);
-    const blob=new Blob([xml],{type:'application/vnd.ms-excel;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=fname;a.style.display='none';
-    document.body.appendChild(a);a.click();
-    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},150);
-  };
-  const date=new Date().toISOString().slice(0,10);
-  // One file per company.
-  const groups=companies.map(co=>({co,list:orders.filter(o=>o.company===co.id)})).filter(g=>g.list.length);
-  if(!groups.length){toast('No orders to export','err');return;}
-  groups.forEach((g,i)=>{
-    const safe=String(g.co.name||g.co.id).replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'');
-    setTimeout(()=>downloadOne(safe+'_Orders_'+date+'.xls',g.list), i*600);
-  });
-  toast(`Exporting ${groups.length} company file${groups.length!==1?'s':''} ✓`,'ok');
-}
-
-/** Build SpreadsheetML 2003 XML — opens cleanly in Excel/Sheets/Numbers. */
-function buildSpreadsheetML(sheets){
-  const xmlEsc=(s)=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
-  const cellFor=(v)=>{
-    if(v==null||v==='')return '<Cell/>';
-    if(typeof v==='number'&&Number.isFinite(v))return `<Cell><Data ss:Type="Number">${v}</Data></Cell>`;
-    return `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`;
-  };
-  const headerCellFor=(v)=>`<Cell ss:StyleID="hdr"><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`;
-  const sheetXml=(s)=>{
-    const colsXml=(s.widths||[]).map(w=>`<Column ss:AutoFitWidth="0" ss:Width="${w}"/>`).join('');
-    const headerRow=`<Row ss:StyleID="hdr">${(s.headers||[]).map(headerCellFor).join('')}</Row>`;
-    const dataRows=(s.rows||[]).map(r=>`<Row>${r.map(cellFor).join('')}</Row>`).join('');
-    return `<Worksheet ss:Name="${xmlEsc(s.name)}"><Table>${colsXml}${headerRow}${dataRows}</Table></Worksheet>`;
-  };
-  return `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
-<Styles>
- <Style ss:ID="hdr"><Font ss:Bold="1"/><Interior ss:Color="#0d2b6e" ss:Pattern="Solid"/><Font ss:Color="#FDF6EC" ss:Bold="1"/></Style>
-</Styles>
-${sheets.map(sheetXml).join('\n')}
-</Workbook>`;
+    if(!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Server error');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `jewelry-catalog-${new Date().toISOString().slice(0,10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Downloaded successfully ✓','ok');
+  } catch(e) {
+    toast('Export failed: ' + e.message, 'err');
+  }
 }
 
 /* legacy CSV path retired — see downloadExcel() above for the real .xls export */
@@ -1384,7 +1458,69 @@ function bgClose(e,id){if(e.target.id===id)closeOverlay(id);}
 function toast(msg,type='info'){const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${type==='ok'?'✓':type==='err'?'✕':'ℹ'}</span> ${msg}`;$$('toasts').appendChild(el);setTimeout(()=>el.remove(),3200);}
 refreshMetals(false,true);
 render();
-window.addEventListener('pageshow',function(e){if(e.persisted)refreshMetals(false,true);});
+syncWithServer();
+window.addEventListener('pageshow',function(e){if(e.persisted) { refreshMetals(false,true); syncWithServer(); }});
+// Clipboard paste image support
+const pz = $$('pasteZone');
+if (pz) {
+  pz.addEventListener('focus', function() {
+    if (pz.textContent === 'Tap here and paste image') {
+      pz.textContent = '';
+    }
+  });
+  pz.addEventListener('blur', function() {
+    if (!pz.textContent.trim()) {
+      pz.textContent = 'Tap here and paste image';
+    }
+  });
+  pz.addEventListener('paste', async function(e) {
+    e.preventDefault();
+    const items = (e.clipboardData || window.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    const imgFiles = [];
+    for (const item of items) {
+      if (item.type.indexOf('image') === 0) {
+        const file = item.getAsFile();
+        if (file) imgFiles.push(file);
+      }
+    }
+    if (imgFiles.length > 0) {
+      toast('Processing pasted image...', 'info');
+      await processFilesArray(imgFiles);
+    } else {
+      toast('No image found in clipboard', 'err');
+    }
+    pz.textContent = 'Tap here and paste image';
+    pz.blur();
+  });
+}
+
+window.addEventListener('paste', async function(e) {
+  const overlay = $$('newOrderOverlay');
+  if (overlay && overlay.classList.contains('open')) {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+      if (active.id !== 'fInput' && active.id !== 'pasteZone') {
+        return; // Ignore global paste if user is typing in detail form fields
+      }
+    }
+    const items = (e.clipboardData || window.clipboardData)?.items;
+    if (!items) return;
+    const imgFiles = [];
+    for (const item of items) {
+      if (item.type.indexOf('image') === 0) {
+        const file = item.getAsFile();
+        if (file) imgFiles.push(file);
+      }
+    }
+    if (imgFiles.length > 0) {
+      e.preventDefault();
+      toast('Processing pasted image...', 'info');
+      await processFilesArray(imgFiles);
+    }
+  }
+});
+
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
