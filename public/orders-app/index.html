@@ -962,7 +962,19 @@ function openMemoCreate(){
   openOverlay('memoPickOverlay');
 }
 function setStatus(id,s){const o=orders.find(x=>x.id===id);if(!o)return;o.status=s;persist();openDetail(id);render();toast(`Status → ${s}`,'ok');pushOrderToServer(o);}
-function deleteOrder(id){if(!confirm('Delete this order?'))return;orders=orders.filter(o=>o.id!==id);persist();closeOverlay('detailOverlay');render();toast('Order deleted','err');fetch('/api/products/'+id,{method:'DELETE'}).catch(e=>console.error(e));}
+function deleteOrder(id){
+  if(!confirm('Delete this order?'))return;
+  orders=orders.filter(o=>o.id!==id);
+  persist();
+  closeOverlay('detailOverlay');
+  render();
+  toast('Order deleted','err');
+  fetch('/api/products/'+id,{method:'DELETE'}).then(res=>{
+    if(!res.ok){
+      toast('Database Error: Could not delete order from server. Saved changes locally only.','err');
+    }
+  }).catch(e=>console.error(e));
+}
 
 function addStoneRow(cat='', shape='', col='', clar='', ct='', src='', cert='', lab='', sup='', cost='', note=''){
   const r=document.createElement('div');
@@ -995,8 +1007,11 @@ function addStoneRow(cat='', shape='', col='', clar='', ct='', src='', cert='', 
 
 async function syncWithServer() {
   try {
-    const res = await fetch('/api/products/sync');
-    if (!res.ok) return;
+    const res = await fetch('/api/products/sync?_=' + Date.now(), { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+    if (!res.ok) {
+      toast('Database Offline: Running in local storage mode. Changes will not sync to the cloud database.','err');
+      return;
+    }
     const data = await res.json();
     if (data.ok && Array.isArray(data.orders)) {
       const byId = {};
@@ -1019,18 +1034,25 @@ async function syncWithServer() {
     }
   } catch (err) {
     console.error('Failed to sync with server:', err);
+    toast('Connection Error: Failed to sync database with server. Changes saved locally.','err');
   }
 }
 
 async function pushOrderToServer(o) {
   try {
-    await fetch('/api/products/sync', {
+    const res = await fetch('/api/products/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order: o })
     });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData.error || `Server status ${res.status}`;
+      toast(`Database Error: ${msg}. Changes saved locally only.`, 'err');
+    }
   } catch (err) {
     console.error('Failed to push order to server:', err);
+    toast('Network Error: Could not save order to server database. Saved locally.', 'err');
   }
 }
 
