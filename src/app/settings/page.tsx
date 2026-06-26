@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { loadCompanies, saveCompanies, type Company } from "@/lib/companies";
+import { ExcelImportButton } from "@/components/ExcelImportButton";
 
 export default function SettingsPage() {
   const [makers, setMakers] = useState<{ id: string; name: string }[]>([]);
@@ -18,6 +19,8 @@ export default function SettingsPage() {
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [pwMsg, setPwMsg] = useState("");
+  const [vendorPayments, setVendorPayments] = useState<Record<string, string>>({});
+  const [paymentsSaved, setPaymentsSaved] = useState(false);
 
   async function changeMyPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -196,7 +199,33 @@ export default function SettingsPage() {
     } catch {
       /* ignore */
     }
+    try {
+      const raw = localStorage.getItem("lgb_vendor_details");
+      const saved = raw ? JSON.parse(raw) : {};
+      const merged = { ...saved };
+      ["MTA Casting Hub", "CARAT", "Victor", "JYMP", "Edwin", "MC Production"].forEach((v) => {
+        if (!merged[v]) merged[v] = "";
+      });
+      setVendorPayments(merged);
+    } catch (_) {
+      const defaults: Record<string, string> = {};
+      ["MTA Casting Hub", "CARAT", "Victor", "JYMP", "Edwin", "MC Production"].forEach((v) => {
+        defaults[v] = "";
+      });
+      setVendorPayments(defaults);
+    }
   }, []);
+
+  function updateVendorPayment(vendor: string, value: string) {
+    setVendorPayments((prev) => ({ ...prev, [vendor]: value }));
+    setPaymentsSaved(false);
+  }
+
+  function persistVendorPayments() {
+    localStorage.setItem("lgb_vendor_details", JSON.stringify(vendorPayments));
+    setPaymentsSaved(true);
+    window.dispatchEvent(new CustomEvent("lgb:vendor-payments-updated"));
+  }
 
   async function testGemini() {
     setGeminiMsg("Testing…");
@@ -330,6 +359,42 @@ export default function SettingsPage() {
             Save companies
           </button>
           {companiesSaved ? <span className="text-xs" style={{ color: "var(--success)" }}>Saved ✓</span> : null}
+        </div>
+      </section>
+
+      <section className="lgb-section">
+        <h2>Vendor Payment Directory</h2>
+        <p className="mt-1 text-xs lgb-muted">
+          Configure payment details (Zelle ID, bank accounts, or notes) for casting houses (MTA, CARAT) and setters (Victor, JYMP, Edwin, MC Production). These details appear on the Statements page.
+        </p>
+        <div className="mt-3 space-y-3">
+          {Object.entries(vendorPayments).map(([vendor, details]) => (
+            <div key={vendor} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+              <span className="w-32 text-sm font-semibold">{vendor}</span>
+              <input
+                className="fc flex-1 text-sm"
+                value={details}
+                onChange={(e) => updateVendorPayment(vendor, e.target.value)}
+                placeholder="Zelle, Bank Account info, or payment terms"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button type="button" className="btn btn-p" onClick={persistVendorPayments}>
+            Save payment details
+          </button>
+          {paymentsSaved ? <span className="text-xs" style={{ color: "var(--success)" }}>Saved ✓</span> : null}
+        </div>
+      </section>
+
+      <section className="lgb-section">
+        <h2>Import Database Catalog</h2>
+        <p className="mt-1 text-xs lgb-muted">
+          Upload an Excel sheet (.xlsx) containing "Products" and "Invoices" sheets to populate the relational database.
+        </p>
+        <div className="mt-3">
+          <ExcelImportButton />
         </div>
       </section>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { loadCompanies, type Company } from "@/lib/companies";
+import { X } from "lucide-react";
 
 type Order = {
   id?: string;
@@ -18,6 +19,7 @@ type Order = {
   castTotal?: string | number;
   stoneTotal?: string | number;
   setter?: string;
+  setPrice?: string | number;
   setTotal?: string | number;
   sellPrice?: string | number;
   extras?: Array<{ desc?: string; cost?: string }>;
@@ -43,7 +45,7 @@ const num = (v: unknown): number => {
 const orderCost = (o: Order): number => {
   const ct = num(o.castTotal);
   const st = num(o.stoneTotal);
-  const sx = num(o.setTotal);
+  const sx = num(o.setPrice) || num(o.setTotal);
   const ex = (o.extras || []).reduce((a, e) => a + num(e?.cost), 0);
   return ct + st + sx + ex;
 };
@@ -106,6 +108,8 @@ export default function DashboardPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   // "all" = both businesses combined; otherwise a company id.
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [selectedCard, setSelectedCard] = useState<{ type: "vendor" | "productType"; name: string } | null>(null);
+  const [timeScale, setTimeScale] = useState<"week" | "month" | "year">("month");
 
   useEffect(() => {
     try {
@@ -125,6 +129,113 @@ export default function DashboardPage() {
     () => (companyFilter === "all" ? allOrders : allOrders.filter((o) => (o.company || "lgb") === companyFilter)),
     [allOrders, companyFilter],
   );
+
+  const cardChartPoints = useMemo(() => {
+    if (!selectedCard) return [];
+    const { type, name } = selectedCard;
+    const lowerName = name.toLowerCase();
+
+    // Filter orders matching this card
+    const filteredOrders = orders.filter((o) => {
+      if (type === "vendor") {
+        return vendorCanon(o.castVendor) === name || vendorCanon(o.setter) === name;
+      }
+      return (o.productType || "").trim().toLowerCase() === lowerName;
+    });
+
+    const getPriceForOrder = (o: Order): number => {
+      if (type === "vendor") {
+        let val = 0;
+        if (vendorCanon(o.castVendor) === name) val += num(o.castTotal);
+        if (vendorCanon(o.setter) === name) val += num(o.setPrice) || num(o.setTotal);
+        return val;
+      }
+      return orderCost(o);
+    };
+
+    const now = new Date();
+    const points: Array<{ label: string; price: number; orderCount: number }> = [];
+
+    if (timeScale === "week") {
+      // Last 8 weeks
+      for (let i = 7; i >= 0; i--) {
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() - i * 7);
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+        const label = startOfWeek.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        
+        const matches = filteredOrders.filter((o) => {
+          if (!o.createdAt) return false;
+          const d = new Date(o.createdAt);
+          return d >= startOfWeek && d <= endOfWeek;
+        });
+        const price = matches.reduce((sum, o) => sum + getPriceForOrder(o), 0);
+        points.push({ label, price, orderCount: matches.length });
+      }
+    } else if (timeScale === "month") {
+      // Last 6 months
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
+        const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+        const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const matches = filteredOrders.filter((o) => {
+          if (!o.createdAt) return false;
+          const d = new Date(o.createdAt);
+          return d >= startOfMonth && d <= endOfMonth;
+        });
+        const price = matches.reduce((sum, o) => sum + getPriceForOrder(o), 0);
+        points.push({ label, price, orderCount: matches.length });
+      }
+    } else {
+      // Last 3 years
+      for (let i = 2; i >= 0; i--) {
+        const yr = now.getFullYear() - i;
+        const label = String(yr);
+        const startOfYear = new Date(yr, 0, 1);
+        const endOfYear = new Date(yr, 11, 31, 23, 59, 59, 999);
+
+        const matches = filteredOrders.filter((o) => {
+          if (!o.createdAt) return false;
+          const d = new Date(o.createdAt);
+          return d >= startOfYear && d <= endOfYear;
+        });
+        const price = matches.reduce((sum, o) => sum + getPriceForOrder(o), 0);
+        points.push({ label, price, orderCount: matches.length });
+      }
+    }
+
+    return points;
+  }, [orders, selectedCard, timeScale]);
+
+  const modalChart = useMemo(() => {
+    const points = cardChartPoints;
+    const w = 560;
+    const h = 300;
+    const padding = { top: 40, right: 20, bottom: 40, left: 65 };
+    const maxVal = Math.max(...points.map((p) => p.price), 100);
+    
+    const spacing = (w - padding.left - padding.right) / Math.max(1, points.length);
+    const barWidth = Math.min(48, spacing * 0.6);
+
+    const bars = points.map((p, i) => {
+      const x = padding.left + i * spacing + (spacing - barWidth) / 2;
+      const y = h - padding.bottom - (p.price / maxVal) * (h - padding.top - padding.bottom);
+      const barHeight = Math.max(2, h - padding.bottom - y);
+      return {
+        label: p.label,
+        price: p.price,
+        orderCount: p.orderCount,
+        x,
+        y,
+        w: barWidth,
+        h: barHeight,
+      };
+    });
+
+    return { w, h, padding, bars, maxVal };
+  }, [cardChartPoints]);
 
   useEffect(() => {
     void (async () => {
@@ -395,7 +506,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="dash-row-head">By vendor</div>
+          <div className="dash-row-head">By vendor <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "var(--text3)", textTransform: "none", marginLeft: "6px" }}>(Click to view trend)</span></div>
           {stats.vendors.length === 0 ? (
             <div className="dash-empty">No vendor data yet</div>
           ) : (
@@ -404,6 +515,8 @@ export default function DashboardPage() {
                 <div
                   className={`stats-card ${BREAKDOWN_CARD_CLASSES[i % BREAKDOWN_CARD_CLASSES.length]}`}
                   key={v.name}
+                  onClick={() => setSelectedCard({ type: "vendor", name: v.name })}
+                  style={{ cursor: "pointer" }}
                 >
                   <div className="stats-card-label">{v.name}</div>
                   <div className="stats-card-value">{v.count}</div>
@@ -416,7 +529,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="dash-row-head">By type</div>
+          <div className="dash-row-head">By type <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "var(--text3)", textTransform: "none", marginLeft: "6px" }}>(Click to view trend)</span></div>
           {stats.productList.length === 0 ? (
             <div className="dash-empty">No product types yet</div>
           ) : (
@@ -425,6 +538,8 @@ export default function DashboardPage() {
                 <div
                   className={`stats-card ${BREAKDOWN_CARD_CLASSES[(i + 2) % BREAKDOWN_CARD_CLASSES.length]}`}
                   key={p.name}
+                  onClick={() => setSelectedCard({ type: "productType", name: p.name })}
+                  style={{ cursor: "pointer" }}
                 >
                   <div className="stats-card-label">{p.name}</div>
                   <div className="stats-card-value">{p.count}</div>
@@ -433,6 +548,128 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+
+          {/* Trend SVG Bar Chart Modal */}
+          {selectedCard ? (
+            <div className="overlay open" onClick={() => setSelectedCard(null)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
+                <div className="mhd">
+                  <span className="mtitle">
+                    Trend for {selectedCard.name}
+                  </span>
+                  <button className="mclose" onClick={() => setSelectedCard(null)}>
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="mbody" style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "16px 20px" }}>
+                  
+                  {/* Time scale toggle */}
+                  <div className="dash-series-toggle" style={{ alignSelf: "center", marginBottom: "4px" }}>
+                    {(["week", "month", "year"] as const).map((scale) => (
+                      <button
+                        key={scale}
+                        type="button"
+                        className={`dash-toggle ${timeScale === scale ? "is-active" : ""}`}
+                        onClick={() => setTimeScale(scale)}
+                        style={{ textTransform: "capitalize" }}
+                      >
+                        {scale}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* SVG Bar Chart */}
+                  <div style={{ background: "var(--cream2)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border)" }}>
+                    <svg
+                      width="100%"
+                      height={modalChart.h}
+                      viewBox={`0 0 ${modalChart.w} ${modalChart.h}`}
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      {/* Y Axis Grid Lines */}
+                      <line
+                        x1={modalChart.padding.left}
+                        y1={modalChart.padding.top}
+                        x2={modalChart.w - modalChart.padding.right}
+                        y2={modalChart.padding.top}
+                        stroke="var(--border)"
+                        strokeDasharray="4 4"
+                      />
+                      <line
+                        x1={modalChart.padding.left}
+                        y1={(modalChart.padding.top + modalChart.h - modalChart.padding.bottom) / 2}
+                        x2={modalChart.w - modalChart.padding.right}
+                        y2={(modalChart.padding.top + modalChart.h - modalChart.padding.bottom) / 2}
+                        stroke="var(--border)"
+                        strokeDasharray="4 4"
+                      />
+                      <line
+                        x1={modalChart.padding.left}
+                        y1={modalChart.h - modalChart.padding.bottom}
+                        x2={modalChart.w - modalChart.padding.right}
+                        y2={modalChart.h - modalChart.padding.bottom}
+                        stroke="var(--border2)"
+                        strokeWidth={1}
+                      />
+
+                      {/* Y Axis Labels */}
+                      <text x={modalChart.padding.left - 8} y={modalChart.padding.top + 4} textAnchor="end" fontSize={11} fill="var(--text3)">
+                        {fmtMoneyShort(modalChart.maxVal)}
+                      </text>
+                      <text x={modalChart.padding.left - 8} y={(modalChart.padding.top + modalChart.h - modalChart.padding.bottom) / 2 + 4} textAnchor="end" fontSize={11} fill="var(--text3)">
+                        {fmtMoneyShort(modalChart.maxVal / 2)}
+                      </text>
+                      <text x={modalChart.padding.left - 8} y={modalChart.h - modalChart.padding.bottom + 4} textAnchor="end" fontSize={11} fill="var(--text3)">
+                        $0
+                      </text>
+
+                      {/* Bars */}
+                      {modalChart.bars.map((bar, idx) => (
+                        <g key={`bar-${idx}`}>
+                          {/* Bar Rect */}
+                          <rect
+                            x={bar.x}
+                            y={bar.y}
+                            width={bar.w}
+                            height={bar.h}
+                            fill="var(--peacock)"
+                            rx={4}
+                            style={{ transition: "all 0.3s ease", cursor: "pointer" }}
+                          />
+                          {/* Order count label on top of bar */}
+                          <text
+                            x={bar.x + bar.w / 2}
+                            y={bar.y - 8}
+                            textAnchor="middle"
+                            fontSize={11}
+                            fontWeight="700"
+                            fill="var(--peacock2)"
+                          >
+                            {bar.orderCount > 0 ? bar.orderCount : ""}
+                          </text>
+                          {/* Price label inside or near the bar if it fits */}
+                          <title>{`Total Value: ${fmtMoney(bar.price)}`}</title>
+                          {/* X Axis Label */}
+                          <text
+                            x={bar.x + bar.w / 2}
+                            y={modalChart.h - 16}
+                            textAnchor="middle"
+                            fontSize={10}
+                            fill="var(--text3)"
+                          >
+                            {bar.label}
+                          </text>
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+                  <div style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--text3)" }}>
+                    Hover over bars to see the exact monetary value. Numbers on top show order count.
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </div>
