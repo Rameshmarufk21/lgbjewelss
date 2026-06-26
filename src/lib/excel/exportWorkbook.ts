@@ -10,6 +10,7 @@ const UNPAID_FILL = "FFFFC7CE";
 
 type LocalOrder = {
   id?: string;
+  company?: string;
   styleCode?: string;
   productType?: string;
   metal?: string;
@@ -28,15 +29,19 @@ type LocalOrder = {
   setInvoice?: string;
   setDate?: string;
   setPrice?: string | number;
-  setLabor?: string | number;
-  setLaser?: string | number;
-  setTotal?: string | number;
+  setJob?: string;
+  stones?: any[];
+  extras?: any[];
+  notes?: string;
+
+  // Legacy fallbacks
   stoneShape?: string;
+  stoneColor?: string;
   stoneMM?: string | number;
   stonePcs?: string | number;
   stoneCt?: string | number;
   stoneTotal?: string | number;
-  notes?: string;
+  stoneCert?: string;
 };
 
 function num(v: unknown): number {
@@ -46,27 +51,6 @@ function num(v: unknown): number {
     return Number.isFinite(n) ? n : 0;
   }
   return 0;
-}
-
-function invoiceStatus(order: LocalOrder): PaymentStatus {
-  const cast = num(order.castTotal);
-  const set = num(order.setTotal);
-  const total = cast + set;
-  if (total <= 0) return "unpaid";
-  if ((order.status ?? "").toLowerCase() === "completed") return "paid";
-  return "partial";
-}
-
-function vendorBucketName(raw: string): string {
-  const v = raw.trim().toLowerCase();
-  if (!v) return "UNASSIGNED";
-  if (v.includes("mta")) return "MTA";
-  if (v.includes("carat")) return "CARAT";
-  if (v.includes("mc")) return "MC";
-  if (v.includes("victor")) return "VICTOR";
-  if (v.includes("jymp")) return "JYMP";
-  if (v.includes("edwin")) return "EDWIN";
-  return "OTHER";
 }
 
 export async function buildCatalogWorkbook(): Promise<Buffer> {
@@ -232,203 +216,327 @@ export async function buildCatalogWorkbook(): Promise<Buffer> {
   return Buffer.isBuffer(buf) ? buf : Buffer.from(new Uint8Array(buf as ArrayBuffer));
 }
 
+async function buildCompanyProjectSheets(
+  wb: ExcelJS.Workbook,
+  orders: LocalOrder[],
+  companyId: string,
+  projectsSheetName: string,
+  pendingSheetName: string,
+  paymentSheetName: string,
+  paymentDescHeaderName: string
+) {
+  const wsProj = wb.addWorksheet(projectsSheetName);
+  wsProj.columns = [
+    { width: 18 }, { width: 20 }, { width: 18 }, { width: 18 }, { width: 15 },
+    { width: 12 }, { width: 12 }, { width: 14 }, { width: 12 }, { width: 15 }, { width: 15 }
+  ];
+
+  const coOrders = orders.filter((o) => {
+    const p = (o.placedBy || "").trim().toLowerCase();
+    if (p === "sagar") return companyId === "sakk";
+    if (p === "khushi" || p === "kunal" || p === "shweta") return companyId === "lgb";
+    return (o.company || "lgb") === companyId;
+  });
+  
+  let rStart = 8; // Start blocks at row 8 like in jewelry.xlsx PROJECTS sheet
+  
+  coOrders.forEach((o, index) => {
+    const projIdx = index + 1;
+    
+    // Row 1: Date / Total header
+    const r1 = wsProj.getRow(rStart);
+    r1.getCell(3).value = "Date";
+    r1.getCell(3).font = { bold: true };
+    r1.getCell(10).value = "Total";
+    r1.getCell(10).font = { bold: true };
+    
+    // Row 2: Project Number, index, Date
+    const r2 = wsProj.getRow(rStart + 1);
+    r2.getCell(1).value = "Project Number";
+    r2.getCell(1).font = { bold: true };
+    r2.getCell(2).value = projIdx;
+    r2.getCell(3).value = o.createdAt ? new Date(o.createdAt) : "";
+    
+    // Row 4: Sales Person
+    const r4 = wsProj.getRow(rStart + 3);
+    r4.getCell(1).value = "Sales Person";
+    r4.getCell(1).font = { bold: true };
+    r4.getCell(2).value = o.placedBy || "";
+    
+    // Row 6: Client Name
+    const r6 = wsProj.getRow(rStart + 5);
+    r6.getCell(1).value = "Client Name";
+    r6.getCell(1).font = { bold: true };
+    r6.getCell(2).value = o.notes && o.notes.startsWith("Client: ") ? o.notes.replace("Client: ", "") : "";
+    
+    // Row 8: CAD Header
+    const r8 = wsProj.getRow(rStart + 7);
+    r8.getCell(1).value = "CAD Guy name";
+    r8.getCell(1).font = { bold: true };
+    r8.getCell(2).value = "Cost";
+    r8.getCell(2).font = { bold: true };
+    r8.getCell(3).value = "File Name";
+    r8.getCell(3).font = { bold: true };
+    
+    // Row 9: CAD Data
+    const r9 = wsProj.getRow(rStart + 8);
+    r9.getCell(3).value = o.styleCode || "";
+    
+    // Row 11: Casting Header
+    const r11 = wsProj.getRow(rStart + 10);
+    const castHeaders = ["Casting Company", "Date", "invoice number", "metal", "gw", "price per gram", "print fee", "total ", "discount ", "final price"];
+    castHeaders.forEach((h, cIdx) => {
+      const cell = r11.getCell(cIdx + 1);
+      cell.value = h;
+      cell.font = { bold: true };
+    });
+    
+    // Row 12: Casting Data
+    const r12 = wsProj.getRow(rStart + 11);
+    r12.getCell(1).value = o.castVendor || "";
+    r12.getCell(2).value = o.castDate ? new Date(o.castDate) : "";
+    r12.getCell(3).value = o.castInvoice || "";
+    r12.getCell(4).value = o.metal || "";
+    r12.getCell(5).value = o.castGrams ? num(o.castGrams) : "";
+    r12.getCell(5).numFmt = "0.00";
+    
+    // Price per gram formula
+    r12.getCell(6).value = { formula: `=H${rStart + 12}/E${rStart + 12}`, result: undefined };
+    r12.getCell(6).numFmt = "$#,##0.00";
+    
+    r12.getCell(7).value = o.castPrint ? num(o.castPrint) : "";
+    r12.getCell(7).numFmt = "$#,##0.00";
+    
+    r12.getCell(8).value = o.castTotal ? num(o.castTotal) : "";
+    r12.getCell(8).numFmt = "$#,##0.00";
+    
+    r12.getCell(9).value = 0;
+    r12.getCell(9).numFmt = "$#,##0.00";
+    
+    r12.getCell(10).value = { formula: `=H${rStart + 12}-I${rStart + 12}`, result: undefined };
+    r12.getCell(10).numFmt = "$#,##0.00";
+    
+    // Row 14: Diamond Header
+    const r14 = wsProj.getRow(rStart + 13);
+    const stoneHeaders = ["Diamond ", "shape", "Size", "Pcs", "tcw", "ppct", "color", "tp", null, "total"];
+    stoneHeaders.forEach((h, cIdx) => {
+      if (h) {
+        const cell = r14.getCell(cIdx + 1);
+        cell.value = h;
+        cell.font = { bold: true };
+      }
+    });
+    
+    // Stones and Extras rows
+    const stoneRows = o.stones || [];
+    const extraRows = o.extras || [];
+    let stoneOffset = 0;
+    
+    if (stoneRows.length === 0 && extraRows.length === 0 && (o.stoneShape || o.stoneCt)) {
+      // Create single stone row from legacy fields
+      const sRow = wsProj.getRow(rStart + 14 + stoneOffset);
+      sRow.getCell(2).value = o.stoneShape || "";
+      sRow.getCell(3).value = o.stoneMM || "";
+      sRow.getCell(4).value = o.stonePcs ? num(o.stonePcs) : "";
+      sRow.getCell(5).value = o.stoneCt ? num(o.stoneCt) : "";
+      sRow.getCell(5).numFmt = "0.000";
+      sRow.getCell(7).value = o.stoneColor || "";
+      sRow.getCell(8).value = o.stoneTotal ? num(o.stoneTotal) : "";
+      sRow.getCell(8).numFmt = "$#,##0.00";
+      sRow.getCell(10).value = { formula: `=H${rStart + 15 + stoneOffset}`, result: undefined };
+      sRow.getCell(10).numFmt = "$#,##0.00";
+      stoneOffset++;
+    } else {
+      stoneRows.forEach((s: any) => {
+        const sRow = wsProj.getRow(rStart + 14 + stoneOffset);
+        sRow.getCell(1).value = s.category === "melee" ? "Melee" : "Diamond";
+        sRow.getCell(2).value = s.shape || "";
+        sRow.getCell(3).value = s.size || s.sizeMm || s.stoneMM || "";
+        sRow.getCell(4).value = s.pcs ? num(s.pcs) : "";
+        sRow.getCell(5).value = s.carat ? num(s.carat) : "";
+        sRow.getCell(5).numFmt = "0.000";
+        sRow.getCell(7).value = s.colorGrade || "";
+        sRow.getCell(8).value = s.cost ? num(s.cost) : "";
+        sRow.getCell(8).numFmt = "$#,##0.00";
+        sRow.getCell(10).value = { formula: `=H${rStart + 15 + stoneOffset}`, result: undefined };
+        sRow.getCell(10).numFmt = "$#,##0.00";
+        stoneOffset++;
+      });
+      
+      extraRows.forEach((e: any) => {
+        const sRow = wsProj.getRow(rStart + 14 + stoneOffset);
+        sRow.getCell(1).value = e.desc || "";
+        sRow.getCell(8).value = e.cost ? num(e.cost) : "";
+        sRow.getCell(8).numFmt = "$#,##0.00";
+        sRow.getCell(10).value = { formula: `=H${rStart + 15 + stoneOffset}`, result: undefined };
+        sRow.getCell(10).numFmt = "$#,##0.00";
+        stoneOffset++;
+      });
+    }
+    
+    if (stoneOffset === 0) {
+      const sRow = wsProj.getRow(rStart + 14 + stoneOffset);
+      sRow.getCell(10).value = "";
+      stoneOffset++;
+    }
+    
+    // Setter Header Row
+    const setterHdrRow = rStart + 14 + stoneOffset;
+    const rSetHdr = wsProj.getRow(setterHdrRow);
+    const setterHeaders = ["Setter ", "Name", "Invoice Number", "Note", "Date", "Received Date", null, null, null, "Cost"];
+    setterHeaders.forEach((h, cIdx) => {
+      if (h) {
+        const cell = rSetHdr.getCell(cIdx + 1);
+        cell.value = h;
+        cell.font = { bold: true };
+      }
+    });
+    
+    // Setter Data Row
+    const rSetData = wsProj.getRow(setterHdrRow + 1);
+    rSetData.getCell(2).value = o.setter || "";
+    rSetData.getCell(3).value = o.setInvoice || "";
+    rSetData.getCell(4).value = o.setJob || "";
+    rSetData.getCell(5).value = o.setDate ? new Date(o.setDate) : "";
+    rSetData.getCell(10).value = o.setPrice ? num(o.setPrice) : "";
+    rSetData.getCell(10).numFmt = "$#,##0.00";
+    
+    // Final Cost Header
+    const rFinalHdr = wsProj.getRow(setterHdrRow + 3);
+    const finalHeaders = ["Final Cost", null, "CASTING", "DIAMOND", "SETTER", null, null, null, null, "TOTAL"];
+    finalHeaders.forEach((h, cIdx) => {
+      if (h) {
+        const cell = rFinalHdr.getCell(cIdx + 1);
+        cell.value = h;
+        cell.font = { bold: true };
+      }
+    });
+    
+    // Final Cost Data Row
+    const rFinalData = wsProj.getRow(setterHdrRow + 4);
+    rFinalData.getCell(3).value = { formula: `=J${rStart + 12}`, result: undefined };
+    rFinalData.getCell(3).numFmt = "$#,##0.00";
+    
+    // Sum formula for stones + extras
+    rFinalData.getCell(4).value = {
+      formula: `=SUM(J${rStart + 15}:J${rStart + 15 + stoneOffset - 1})`,
+      result: undefined
+    };
+    rFinalData.getCell(4).numFmt = "$#,##0.00";
+    
+    rFinalData.getCell(5).value = { formula: `=J${setterHdrRow + 2}`, result: undefined };
+    rFinalData.getCell(5).numFmt = "$#,##0.00";
+    
+    rFinalData.getCell(10).value = {
+      formula: `=C${setterHdrRow + 5}+D${setterHdrRow + 5}+E${setterHdrRow + 5}`,
+      result: undefined
+    };
+    rFinalData.getCell(10).font = { bold: true };
+    rFinalData.getCell(10).numFmt = "$#,##0.00";
+    
+    // Delivery Date row
+    const rDelivery = wsProj.getRow(setterHdrRow + 6);
+    rDelivery.getCell(1).value = "Delivery Date";
+    rDelivery.getCell(1).font = { bold: true };
+    rDelivery.getCell(2).value = ""; // Empty placeholder
+    
+    rStart = setterHdrRow + 9;
+  });
+  
+  // Populate PENDING sheet
+  const wsPending = wb.addWorksheet(pendingSheetName);
+  wsPending.columns = [
+    { header: "Date ", key: "date", width: 14 },
+    { header: "Invoice No ", key: "invoice_no", width: 14 },
+    { header: "Description", key: "desc", width: 18 },
+    { header: "Amount", key: "amount", width: 12 },
+    { header: "Discount", key: "discount", width: 12 },
+    { header: "Total", key: "total", width: 12 },
+    { header: "Status", key: "status", width: 12 },
+    { header: "Date Paid", key: "date_paid", width: 14 }
+  ];
+  
+  wsPending.insertRow(1, ["Jewelry"]);
+  wsPending.insertRow(2, [companyId === "sakk" ? "SAKK MTA" : "MTA"]);
+  wsPending.getRow(1).font = { bold: true };
+  wsPending.getRow(2).font = { bold: true };
+  wsPending.getRow(3).font = { bold: true };
+  
+  let pIdx = 4;
+  coOrders.forEach((o) => {
+    if (o.castVendor || o.castInvoice || num(o.castTotal) > 0) {
+      const isPaid = (o.status ?? "").toLowerCase() === "completed";
+      wsPending.addRow({
+        date: o.castDate ? new Date(o.castDate) : "",
+        invoice_no: o.castInvoice || "",
+        desc: o.styleCode || "",
+        amount: num(o.castTotal) || "",
+        discount: 0,
+        total: { formula: `=D${pIdx}-E${pIdx}`, result: undefined },
+        status: isPaid ? "Paid" : "Pending",
+        date_paid: isPaid ? (o.castDate ? new Date(o.castDate) : "") : ""
+      });
+      wsPending.getRow(pIdx).getCell("amount").numFmt = "$#,##0.00";
+      wsPending.getRow(pIdx).getCell("discount").numFmt = "$#,##0.00";
+      wsPending.getRow(pIdx).getCell("total").numFmt = "$#,##0.00";
+      pIdx++;
+    }
+  });
+
+  // Populate PAYMENT sheet
+  const wsPayment = wb.addWorksheet(paymentSheetName);
+  wsPayment.columns = [
+    { header: "Date", key: "date", width: 14 },
+    { header: paymentDescHeaderName, key: "desc", width: 22 },
+    { header: "Amount", key: "amount", width: 12 },
+    { header: "Note", key: "note", width: 24 }
+  ];
+  
+  wsPayment.insertRow(1, ["PAYMENTS"]);
+  wsPayment.getRow(1).font = { bold: true };
+  wsPayment.getRow(2).font = { bold: true };
+  
+  let payIdx = 3;
+  coOrders.forEach((o) => {
+    if (o.setter || num(o.setPrice) > 0) {
+      wsPayment.addRow({
+        date: o.setDate ? new Date(o.setDate) : "",
+        desc: o.setter || "",
+        amount: num(o.setPrice) || "",
+        note: o.setInvoice ? `Invoice: ${o.setInvoice}` : (o.setJob || "")
+      });
+      wsPayment.getRow(payIdx).getCell("amount").numFmt = "$#,##0.00";
+      payIdx++;
+    }
+  });
+}
+
 export async function buildCatalogWorkbookFromOrders(orders: LocalOrder[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "LabGrownBox";
   workbook.created = new Date();
 
-  const cardsSheet = workbook.addWorksheet("Cards", { views: [{ state: "frozen", ySplit: 1 }] });
-  cardsSheet.columns = [
-    { header: "order_id", key: "order_id", width: 14 },
-    { header: "style_code", key: "style_code", width: 16 },
-    { header: "product_type", key: "product_type", width: 14 },
-    { header: "status", key: "status", width: 14 },
-    { header: "placed_by", key: "placed_by", width: 14 },
-    { header: "created_at", key: "created_at", width: 14 },
-    { header: "metal", key: "metal", width: 16 },
-    { header: "size", key: "size", width: 12 },
-    { header: "cast_vendor", key: "cast_vendor", width: 20 },
-    { header: "cast_invoice", key: "cast_invoice", width: 14 },
-    { header: "cast_date", key: "cast_date", width: 14 },
-    { header: "cast_total", key: "cast_total", width: 12 },
-    { header: "setter", key: "setter", width: 14 },
-    { header: "set_invoice", key: "set_invoice", width: 14 },
-    { header: "set_date", key: "set_date", width: 14 },
-    { header: "set_total", key: "set_total", width: 12 },
-    { header: "stone_shape", key: "stone_shape", width: 16 },
-    { header: "stone_size_mm", key: "stone_size_mm", width: 14 },
-    { header: "stone_pcs", key: "stone_pcs", width: 12 },
-    { header: "stone_ct", key: "stone_ct", width: 12 },
-    { header: "stone_total", key: "stone_total", width: 12 },
-    { header: "grand_total", key: "grand_total", width: 12 },
-    { header: "notes", key: "notes", width: 30 },
-  ];
-  cardsSheet.getRow(1).font = { bold: true };
+  // LGB Sheets
+  await buildCompanyProjectSheets(
+    workbook,
+    orders,
+    "lgb",
+    "PROJECTS",
+    "PENDING",
+    "LGB_Jewelry Payment",
+    "Setter"
+  );
 
-  const allInvoiceRows: Array<{
-    vendor: string;
-    bucket: string;
-    orderId: string;
-    styleCode: string;
-    productType: string;
-    invoiceNo: string;
-    invoiceDate: string;
-    amount: number;
-    paymentStatus: PaymentStatus;
-    source: "casting" | "setting";
-  }> = [];
-
-  for (const o of orders) {
-    const castTotal = num(o.castTotal);
-    const setTotal = num(o.setTotal);
-    const stoneTotal = num(o.stoneTotal);
-    const grandTotal = castTotal + setTotal + stoneTotal;
-    const payStatus = invoiceStatus(o);
-
-    cardsSheet.addRow({
-      order_id: o.id ?? "",
-      style_code: o.styleCode ?? "",
-      product_type: o.productType ?? "",
-      status: o.status ?? "",
-      placed_by: o.placedBy ?? "",
-      created_at: o.createdAt ?? "",
-      metal: o.metal ?? "",
-      size: o.size ?? "",
-      cast_vendor: o.castVendor ?? "",
-      cast_invoice: o.castInvoice ?? "",
-      cast_date: o.castDate ?? "",
-      cast_total: castTotal || "",
-      setter: o.setter ?? "",
-      set_invoice: o.setInvoice ?? "",
-      set_date: o.setDate ?? "",
-      set_total: setTotal || "",
-      stone_shape: o.stoneShape ?? "",
-      stone_size_mm: o.stoneMM ?? "",
-      stone_pcs: o.stonePcs ?? "",
-      stone_ct: o.stoneCt ?? "",
-      stone_total: stoneTotal || "",
-      grand_total: grandTotal || "",
-      notes: o.notes ?? "",
-    });
-
-    if (castTotal > 0 || (o.castInvoice ?? "").trim()) {
-      allInvoiceRows.push({
-        vendor: o.castVendor ?? "",
-        bucket: vendorBucketName(o.castVendor ?? ""),
-        orderId: o.id ?? "",
-        styleCode: o.styleCode ?? "",
-        productType: o.productType ?? "",
-        invoiceNo: o.castInvoice ?? "",
-        invoiceDate: o.castDate ?? "",
-        amount: castTotal,
-        paymentStatus: payStatus,
-        source: "casting",
-      });
-    }
-    if (setTotal > 0 || (o.setInvoice ?? "").trim()) {
-      allInvoiceRows.push({
-        vendor: o.setter ?? "",
-        bucket: vendorBucketName(o.setter ?? ""),
-        orderId: o.id ?? "",
-        styleCode: o.styleCode ?? "",
-        productType: o.productType ?? "",
-        invoiceNo: o.setInvoice ?? "",
-        invoiceDate: o.setDate ?? "",
-        amount: setTotal,
-        paymentStatus: payStatus,
-        source: "setting",
-      });
-    }
-  }
-
-  const invoicesSheet = workbook.addWorksheet("Invoices", { views: [{ state: "frozen", ySplit: 1 }] });
-  invoicesSheet.columns = [
-    { header: "vendor", key: "vendor", width: 18 },
-    { header: "order_id", key: "order_id", width: 14 },
-    { header: "style_code", key: "style_code", width: 16 },
-    { header: "product_type", key: "product_type", width: 14 },
-    { header: "source", key: "source", width: 10 },
-    { header: "invoice_no", key: "invoice_no", width: 14 },
-    { header: "invoice_date", key: "invoice_date", width: 14 },
-    { header: "amount", key: "amount", width: 12 },
-    { header: "payment_status", key: "payment_status", width: 14 },
-  ];
-  invoicesSheet.getRow(1).font = { bold: true };
-
-  allInvoiceRows.forEach((r, idx) => {
-    invoicesSheet.addRow({
-      vendor: r.vendor,
-      order_id: r.orderId,
-      style_code: r.styleCode,
-      product_type: r.productType,
-      source: r.source,
-      invoice_no: r.invoiceNo,
-      invoice_date: r.invoiceDate,
-      amount: r.amount || "",
-      payment_status: r.paymentStatus,
-    });
-    const fill = r.paymentStatus === "paid" ? PAID_FILL : r.paymentStatus === "partial" ? PARTIAL_FILL : UNPAID_FILL;
-    invoicesSheet.getRow(idx + 2).getCell("payment_status").fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: fill },
-    };
-  });
-
-  const buckets = new Map<string, typeof allInvoiceRows>();
-  for (const row of allInvoiceRows) {
-    const prev = buckets.get(row.bucket) ?? [];
-    prev.push(row);
-    buckets.set(row.bucket, prev);
-  }
-  const bucketOrder = ["MTA", "CARAT", "MC", "VICTOR", "JYMP", "EDWIN", "OTHER", "UNASSIGNED"];
-  for (const bucket of bucketOrder) {
-    const rows = buckets.get(bucket);
-    if (!rows?.length) continue;
-    const ws = workbook.addWorksheet(bucket, { views: [{ state: "frozen", ySplit: 1 }] });
-    ws.columns = [...invoicesSheet.columns];
-    ws.getRow(1).font = { bold: true };
-    rows.forEach((r, idx) => {
-      ws.addRow({
-        vendor: r.vendor,
-        order_id: r.orderId,
-        style_code: r.styleCode,
-        product_type: r.productType,
-        source: r.source,
-        invoice_no: r.invoiceNo,
-        invoice_date: r.invoiceDate,
-        amount: r.amount || "",
-        payment_status: r.paymentStatus,
-      });
-      const fill =
-        r.paymentStatus === "paid" ? PAID_FILL : r.paymentStatus === "partial" ? PARTIAL_FILL : UNPAID_FILL;
-      ws.getRow(idx + 2).getCell("payment_status").fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: fill },
-      };
-    });
-  }
-
-  const dashboard = workbook.addWorksheet("Dashboard");
-  dashboard.columns = [
-    { header: "metric", key: "metric", width: 26 },
-    { header: "value", key: "value", width: 20 },
-  ];
-  dashboard.getRow(1).font = { bold: true };
-  const totalOrders = orders.length;
-  const totalCast = orders.reduce((a, o) => a + num(o.castTotal), 0);
-  const totalSet = orders.reduce((a, o) => a + num(o.setTotal), 0);
-  const totalStone = orders.reduce((a, o) => a + num(o.stoneTotal), 0);
-  const totalGrand = totalCast + totalSet + totalStone;
-  dashboard.addRows([
-    { metric: "Total cards", value: totalOrders },
-    { metric: "Casting total", value: totalCast },
-    { metric: "Setting total", value: totalSet },
-    { metric: "Stone total", value: totalStone },
-    { metric: "Grand total", value: totalGrand },
-    { metric: "Invoices exported", value: allInvoiceRows.length },
-  ]);
+  // SAKK Sheets
+  await buildCompanyProjectSheets(
+    workbook,
+    orders,
+    "sakk",
+    "SAKK PROJECTS",
+    "SAKK",
+    "SAKK_Jewelry_Payment",
+    "Description"
+  );
 
   const buf = await workbook.xlsx.writeBuffer();
   return Buffer.isBuffer(buf) ? buf : Buffer.from(new Uint8Array(buf as ArrayBuffer));

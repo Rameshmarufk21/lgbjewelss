@@ -1,6 +1,13 @@
 import { loadCompanies } from "@/lib/companies";
 
-type AnyOrder = { company?: string } & Record<string, unknown>;
+type AnyOrder = { company?: string; placedBy?: string } & Record<string, unknown>;
+
+function getCompanyForOrder(placedBy?: string, company?: string): string {
+  const p = (placedBy || "").trim().toLowerCase();
+  if (p === "sagar") return "sakk";
+  if (p === "khushi" || p === "kunal" || p === "shweta") return "lgb";
+  return company || "lgb";
+}
 
 async function fetchWorkbookBlob(orders: unknown[]): Promise<Blob> {
   const res = await fetch("/api/excel/export", {
@@ -42,7 +49,7 @@ export async function exportCompanyExcel(companyId: string, companyName: string)
   if (typeof window === "undefined") return;
   const raw = window.localStorage.getItem("lgb_orders");
   const all = (raw ? (JSON.parse(raw) as unknown[]) : []) as AnyOrder[];
-  const items = all.filter((o) => (o.company || "lgb") === companyId);
+  const items = all.filter((o) => getCompanyForOrder(o.placedBy, o.company) === companyId);
   const date = new Date().toISOString().slice(0, 10);
   const blob = await fetchWorkbookBlob(items);
   triggerDownload(blob, `${slug(companyName)}-orders-${date}.xlsx`);
@@ -78,7 +85,8 @@ export async function importCompanyExcel(
   let created = 0;
   let updated = 0;
   for (const incoming of data.orders) {
-    const tagged: AnyOrder = { ...incoming, company: companyId };
+    const orderCompany = getCompanyForOrder(incoming.placedBy, companyId);
+    const tagged: AnyOrder = { ...incoming, company: orderCompany };
     const id = typeof incoming.id === "string" ? incoming.id : "";
     if (id && byId.has(id)) {
       const idx = byId.get(id)!;
@@ -110,11 +118,11 @@ export async function exportOrdersExcel(): Promise<void> {
 
   const known = new Set(companies.map((c) => c.id));
   const groups = companies
-    .map((c) => ({ name: c.name, items: orders.filter((o) => (o.company || "lgb") === c.id) }))
+    .map((c) => ({ name: c.name, items: orders.filter((o) => getCompanyForOrder(o.placedBy, o.company) === c.id) }))
     .filter((g) => g.items.length > 0);
 
   // Any orders whose company isn't in the registry get their own file.
-  const orphans = orders.filter((o) => !known.has(o.company || "lgb"));
+  const orphans = orders.filter((o) => !known.has(getCompanyForOrder(o.placedBy, o.company)));
   if (orphans.length) groups.push({ name: "Other", items: orphans });
 
   if (groups.length === 0) {

@@ -3011,6 +3011,17 @@
 .lgb-shell .stmt-list-row:last-child {
   border-bottom: none;
 }
+.lgb-shell .stmt-diamond-head,
+.lgb-shell .stmt-diamond-row {
+  grid-template-columns: 6.5rem 7rem 1fr 5.5rem 8rem 6.5rem;
+}
+.lgb-shell .dash-breakdown-row .stats-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.lgb-shell .dash-breakdown-row .stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
 .lgb-shell .stmt-list-num {
   font-weight: 600;
   color: var(--text3);
@@ -3067,6 +3078,15 @@
   .lgb-shell .stmt-list-status { grid-column: 1; grid-row: 5; font-size: 0.78rem; }
   .lgb-shell .stmt-list-medium { grid-column: 2; grid-row: 5; font-size: 0.78rem; }
   .lgb-shell .stmt-list-status::after { content: none; }
+  .lgb-shell .stmt-diamond-head {
+    display: none;
+  }
+  .lgb-shell .stmt-diamond-row {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 4px;
+    padding: 12px 0;
+  }
 }
 
 @media (pointer: coarse) {

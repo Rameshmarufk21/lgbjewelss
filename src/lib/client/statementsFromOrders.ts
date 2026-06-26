@@ -1,3 +1,23 @@
+export type StoredStone = {
+  category?: string;
+  itemCategory?: string;
+  shape?: string;
+  colorGrade?: string;
+  color?: string;
+  clarityGrade?: string;
+  clarity?: string;
+  carat?: string | number;
+  carats?: string | number;
+  sourcing?: string;
+  certificateNumber?: string;
+  certNumber?: string;
+  certificateLab?: string;
+  certLab?: string;
+  supplier?: string;
+  cost?: string | number;
+  notes?: string;
+};
+
 export type OrderRow = {
   id?: string;
   company?: string;
@@ -14,6 +34,12 @@ export type OrderRow = {
   setTotal?: string | number;
   setPrice?: string | number;
   setLabor?: string | number;
+  stoneShape?: string;
+  stoneCt?: string | number;
+  stoneCert?: string;
+  stoneTotal?: string | number;
+  stoneMM?: string;
+  stones?: StoredStone[];
 };
 
 export type StoredPayment = {
@@ -237,4 +263,78 @@ export function fmtStatementDate(d: string): string {
 export function fmtMoney(n: number | null): string {
   if (n == null || !Number.isFinite(n)) return "—";
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export type DiamondStatementLine = {
+  orderId: string;
+  styleCode: string;
+  date: string;
+  category: string;
+  shape: string;
+  carat: number | null;
+  cert: string;
+  cost: number | null;
+  notes: string;
+};
+
+export type SupplierStatementGroup = {
+  supplier: string;
+  lines: DiamondStatementLine[];
+};
+
+export function buildDiamondStatements(orders: OrderRow[]): SupplierStatementGroup[] {
+  const supplierGroups: Record<string, DiamondStatementLine[]> = {};
+
+  orders.forEach((o) => {
+    const dateStr = o.createdAt || "";
+    const orderId = o.id || "";
+    const styleCode = o.styleCode || "";
+
+    if (Array.isArray(o.stones)) {
+      o.stones.forEach((s) => {
+        const costVal = num(s.cost);
+        const supplierName = (s.supplier || "").trim() || "Unknown Supplier";
+        
+        if (costVal !== null || s.shape || s.carat) {
+          if (!supplierGroups[supplierName]) {
+            supplierGroups[supplierName] = [];
+          }
+          supplierGroups[supplierName].push({
+            orderId,
+            styleCode,
+            date: dateStr,
+            category: s.category || s.itemCategory || "diamond",
+            shape: s.shape || "Stone",
+            carat: num(s.carat),
+            cert: s.certificateNumber || s.certNumber || "",
+            cost: costVal,
+            notes: s.notes || "",
+          });
+        }
+      });
+    }
+
+    if ((!o.stones || o.stones.length === 0) && (num(o.stoneTotal) !== null || o.stoneShape)) {
+      const supplierName = "Unknown Supplier";
+      if (!supplierGroups[supplierName]) {
+        supplierGroups[supplierName] = [];
+      }
+      supplierGroups[supplierName].push({
+        orderId,
+        styleCode,
+        date: dateStr,
+        category: "diamond",
+        shape: o.stoneShape || "Stone",
+        carat: num(o.stoneCt),
+        cert: o.stoneCert || "",
+        cost: num(o.stoneTotal),
+        notes: o.stoneMM || "",
+      });
+    }
+  });
+
+  return Object.entries(supplierGroups).map(([supplier, lines]) => ({
+    supplier,
+    lines: lines.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+  })).sort((a, b) => a.supplier.localeCompare(b.supplier));
 }
