@@ -13,6 +13,14 @@ function parseJsonSafe(str: string | null): Record<string, any> | null {
   return null;
 }
 
+function cleanNum(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const s = String(v).replace(/[$,\s]/g, "");
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
@@ -180,6 +188,7 @@ export async function POST(req: Request) {
         metal: o.metal || "",
       });
 
+      const cleanSellPrice = cleanNum(o.sellPrice);
       await prisma.product.upsert({
         where: { id: o.id },
         create: {
@@ -188,7 +197,7 @@ export async function POST(req: Request) {
           cadFilenameStem: o.styleCode || "",
           status: o.status || "Inquiry",
           makerId,
-          sellPriceCents: o.sellPrice ? Math.round(Number(o.sellPrice) * 100) : null,
+          sellPriceCents: cleanSellPrice !== null ? Math.round(cleanSellPrice * 100) : null,
           notes: notesValue,
           createdAt: o.createdAt ? new Date(o.createdAt) : new Date(),
         },
@@ -197,16 +206,20 @@ export async function POST(req: Request) {
           cadFilenameStem: o.styleCode || "",
           status: o.status || "Inquiry",
           makerId,
-          sellPriceCents: o.sellPrice ? Math.round(Number(o.sellPrice) * 100) : null,
+          sellPriceCents: cleanSellPrice !== null ? Math.round(cleanSellPrice * 100) : null,
           notes: notesValue,
         },
       });
 
       if (o.castVendor) {
-        const totalCents = o.castTotal ? Math.round(Number(o.castTotal) * 100) : 0;
+        const castTotalVal = cleanNum(o.castTotal);
+        const totalCents = castTotalVal !== null ? Math.round(castTotalVal * 100) : 0;
         const existCast = await prisma.vendorInvoice.findFirst({
           where: { productId: o.id, vendor: o.castVendor },
         });
+
+        const printVal = cleanNum(o.castPrint);
+        const gramsVal = cleanNum(o.castGrams);
 
         const invData = {
           productId: o.id,
@@ -214,8 +227,8 @@ export async function POST(req: Request) {
           invoiceNo: o.castInvoice || "CAST",
           invoiceDate: o.castDate ? new Date(o.castDate) : null,
           totalCents,
-          goldWeightG: o.castGrams ? Number(o.castGrams) : null,
-          otherChargesCents: o.castPrint ? Math.round(Number(o.castPrint) * 100) : null,
+          goldWeightG: gramsVal,
+          otherChargesCents: printVal !== null ? Math.round(printVal * 100) : null,
           notes: o.castDWT || "",
         };
 
@@ -227,8 +240,10 @@ export async function POST(req: Request) {
       }
 
       if (o.setter) {
-        const setCostVal = o.setPrice || o.setTotal || 0;
-        const totalCents = Math.round(Number(setCostVal) * 100);
+        const setPriceVal = cleanNum(o.setPrice);
+        const setTotalVal = cleanNum(o.setTotal);
+        const setCostVal = setPriceVal ?? setTotalVal ?? 0;
+        const totalCents = Math.round(setCostVal * 100);
         const existSet = await prisma.vendorInvoice.findFirst({
           where: { productId: o.id, vendor: o.setter },
         });
@@ -239,7 +254,7 @@ export async function POST(req: Request) {
           invoiceNo: o.setInvoice || "SET",
           invoiceDate: o.setDate ? new Date(o.setDate) : null,
           totalCents,
-          metalCostCents: o.setPrice ? Math.round(Number(o.setPrice) * 100) : null,
+          metalCostCents: setPriceVal !== null ? Math.round(setPriceVal * 100) : null,
           laborCostCents: null,
           otherChargesCents: null,
         };
@@ -255,6 +270,8 @@ export async function POST(req: Request) {
 
       if (Array.isArray(o.stones) && o.stones.length) {
         for (const s of o.stones) {
+          const stoneCostVal = cleanNum(s.cost);
+          const stoneCaratVal = cleanNum(s.carat);
           await prisma.stoneAssignment.create({
             data: {
               productId: o.id,
@@ -262,26 +279,28 @@ export async function POST(req: Request) {
               shape: s.shape || null,
               colorGrade: s.colorGrade || null,
               clarityGrade: s.clarityGrade || null,
-              carat: s.carat ? Number(s.carat) : null,
+              carat: stoneCaratVal,
               sourcing: s.sourcing || null,
               certificateNumber: s.certificateNumber || null,
               certificateLab: s.certificateLab || null,
               supplier: s.supplier || null,
-              costCents: s.cost ? Math.round(Number(s.cost) * 100) : null,
+              costCents: stoneCostVal !== null ? Math.round(stoneCostVal * 100) : null,
               notes: s.notes || null,
             },
           });
         }
       } else if (o.stoneShape || o.stoneCt) {
+        const stoneTotalVal = cleanNum(o.stoneTotal);
+        const stoneCtVal = cleanNum(o.stoneCt);
         await prisma.stoneAssignment.create({
           data: {
             productId: o.id,
             itemCategory: "diamond",
             shape: o.stoneShape || null,
             colorGrade: o.stoneColor || null,
-            carat: o.stoneCt ? Number(o.stoneCt) : null,
+            carat: stoneCtVal,
             certificateNumber: o.stoneCert || null,
-            costCents: o.stoneTotal ? Math.round(Number(o.stoneTotal) * 100) : null,
+            costCents: stoneTotalVal !== null ? Math.round(stoneTotalVal * 100) : null,
           },
         });
       }
