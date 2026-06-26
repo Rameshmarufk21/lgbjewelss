@@ -84,6 +84,7 @@ export async function importCompanyExcel(
 
   let created = 0;
   let updated = 0;
+  const importedOrders: AnyOrder[] = [];
   for (const incoming of data.orders) {
     const orderCompany = getCompanyForOrder(incoming.placedBy, companyId);
     const tagged: AnyOrder = { ...incoming, company: orderCompany };
@@ -96,11 +97,32 @@ export async function importCompanyExcel(
       existing.push(tagged);
       created++;
     }
+    importedOrders.push(tagged);
   }
 
   window.localStorage.setItem("lgb_orders", JSON.stringify(existing));
+
+  if (importedOrders.length > 0) {
+    try {
+      void fetch("/api/products/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orders: importedOrders }),
+      }).then((pushRes) => {
+        if (!pushRes.ok) {
+          console.error("Failed to sync imported orders to cloud database");
+        }
+      }).catch((err) => {
+        console.error("Error syncing imported orders to cloud database:", err);
+      });
+    } catch (err) {
+      console.error("Error initiating sync for imported orders:", err);
+    }
+  }
+
   // Let other open pages (dashboard, history, etc.) pick up the change.
   window.dispatchEvent(new StorageEvent("storage", { key: "lgb_orders" }));
+  window.dispatchEvent(new CustomEvent("lgb:orders-updated"));
   return { created, updated };
 }
 
