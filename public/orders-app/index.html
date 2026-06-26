@@ -547,7 +547,16 @@ function migrateOrder(o){
 }
 orders=orders.map(migrateOrder);
 
-function persist(){localStorage.setItem('lgb_orders',JSON.stringify(orders));}
+function persist(){
+  localStorage.setItem('lgb_orders',JSON.stringify(orders));
+  try {
+    window.dispatchEvent(new StorageEvent('storage', { key: 'lgb_orders' }));
+    if (window.parent && window.parent !== window) {
+      window.parent.dispatchEvent(new StorageEvent('storage', { key: 'lgb_orders' }));
+      window.parent.dispatchEvent(new CustomEvent('lgb:orders-updated'));
+    }
+  } catch(e) {}
+}
 /** Persist, but if localStorage is full, drop the heavy images from the just-saved
  *  order(s) (full image first, then the crop) and retry — so an order is NEVER lost
  *  just because a scan photo was big. Returns true if saved. */
